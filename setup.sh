@@ -28,14 +28,14 @@ print_banner() {
     cat << 'EOF'
   ┌───────────────────────────────────────────────────┐
   │                                                   │
-  │         m a t r i x - e a s y - d e p l o y      │
+  │         m a t r i x - e a s y - d e p l o y       │
   │                                                   │
   │   Your Matrix homeserver, standing up straight.   │
   │                                                   │
   └───────────────────────────────────────────────────┘
 EOF
     echo -e "${RESET}"
-    echo -e "  This wizard will set up ${BOLD}Synapse${RESET} + ${BOLD}Element${RESET} + ${BOLD}Caddy${RESET} on this machine."
+    echo -e "  This wizard will set up ${BOLD}Synapse${RESET} + ${BOLD}Caddy${RESET} on this machine (Element is optional)."
     echo -e "  It should take about ${CYAN}5 minutes${RESET}.\n"
 }
 
@@ -164,6 +164,15 @@ gather_config() {
         ALLOW_PUBLIC_ROOMS_FEDERATION="false"
     fi
 
+    ask_yn INSTALL_ELEMENT_INPUT \
+        "Install Element web client? (served at your domain; skip if you use another client)" \
+        "y"
+    if [[ "$INSTALL_ELEMENT_INPUT" == "y" ]]; then
+        INSTALL_ELEMENT="true"
+    else
+        INSTALL_ELEMENT="false"
+    fi
+
     # -- Confirm summary -----------------------------------------------------
     echo
     echo -e "${BOLD}  Configuration summary${RESET}"
@@ -173,6 +182,7 @@ gather_config() {
     echo -e "  Admin user      : ${CYAN}${ADMIN_USERNAME}${RESET}"
     echo -e "  Public reg.     : ${CYAN}${ENABLE_REGISTRATION}${RESET}"
     echo -e "  Federation      : ${CYAN}${ENABLE_FEDERATION_INPUT}${RESET}"
+    echo -e "  Element client  : ${CYAN}${INSTALL_ELEMENT}${RESET}"
     echo
 
     ask_yn _confirm "Does this look right? Proceed?" "y"
@@ -213,6 +223,7 @@ MACAROON_SECRET_KEY=${MACAROON_SECRET_KEY}
 FORM_SECRET=${FORM_SECRET}
 
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
+INSTALL_ELEMENT=${INSTALL_ELEMENT}
 EOF
     chmod 600 "$DEPLOY_ENV"
     success ".env written."
@@ -234,10 +245,16 @@ FEDERATION_WHITELIST=${FEDERATION_WHITELIST}
 ALLOW_PUBLIC_ROOMS_FEDERATION=${ALLOW_PUBLIC_ROOMS_FEDERATION}
 EOF
 
-    # -- Caddyfile -------------------------------------------------------------
+    # -- Caddyfile (choose template based on whether Element is being installed) --
     info "Rendering Caddyfile…"
+    local _caddyfile_template
+    if [[ "$INSTALL_ELEMENT" == "true" ]]; then
+        _caddyfile_template="${SCRIPT_DIR}/caddy/Caddyfile.template"
+    else
+        _caddyfile_template="${SCRIPT_DIR}/caddy/Caddyfile-no-element.template"
+    fi
     render_template \
-        "${SCRIPT_DIR}/caddy/Caddyfile.template" \
+        "$_caddyfile_template" \
         "${SCRIPT_DIR}/caddy/Caddyfile" \
         "$vars_file"
     success "caddy/Caddyfile written."
@@ -250,13 +267,15 @@ EOF
         "$vars_file"
     success "modules/core/synapse/homeserver.yaml written."
 
-    # -- Element config.json ---------------------------------------------------
-    info "Rendering element/config.json…"
-    render_template \
-        "${SCRIPT_DIR}/modules/core/element/config.json.template" \
-        "${SCRIPT_DIR}/modules/core/element/config.json" \
-        "$vars_file"
-    success "modules/core/element/config.json written."
+    # -- Element config.json (only when Element is being installed) -------------
+    if [[ "$INSTALL_ELEMENT" == "true" ]]; then
+        info "Rendering element/config.json…"
+        render_template \
+            "${SCRIPT_DIR}/modules/core/element/config.json.template" \
+            "${SCRIPT_DIR}/modules/core/element/config.json" \
+            "$vars_file"
+        success "modules/core/element/config.json written."
+    fi
 }
 
 # =============================================================================
@@ -281,13 +300,19 @@ start_services() {
     success "Caddy is up."
 
     echo
-    info "Starting core Matrix services (PostgreSQL + Synapse + Element)…"
+    local _element_label=""
+    local _element_profile=""
+    if [[ "$INSTALL_ELEMENT" == "true" ]]; then
+        _element_label=" + Element"
+        _element_profile="--profile element"
+    fi
+    info "Starting core Matrix services (PostgreSQL + Synapse${_element_label})…"
     info "  Pulling images — this may take a few minutes on first run."
     (
         cd "${SCRIPT_DIR}/modules/core"
         # Pass the generated postgres password via environment
         POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-            $DOCKER_COMPOSE up -d --pull always
+            $DOCKER_COMPOSE $_element_profile up -d --pull always
     )
     success "Core services started."
 }

@@ -45,6 +45,8 @@ services:
     image: vectorim/element-web:latest
     container_name: matrix_element
     restart: unless-stopped
+    profiles:
+      - element
     volumes:
       - ./element/config.json:/app/config.json:ro
     networks:
