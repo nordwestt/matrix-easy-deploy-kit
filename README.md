@@ -46,8 +46,8 @@ This project makes the first step easier. It doesn't abstract away the details â
 ## Quick start
 
 ```bash
-git clone https://github.com/yourname/matrix-easy-deploy
-cd matrix-easy-deploy
+git clone https://github.com/nordwestt/matrix-easy-deploy-kit
+cd matrix-easy-deploy-kit
 bash setup.sh
 ```
 
