@@ -3,7 +3,7 @@
 #  matrix-easy-deploy  —  setup.sh
 #  Interactive setup wizard for a self-hosted Matrix homeserver.
 #
-#  Installs: Caddy (reverse proxy) + Synapse (homeserver) + Element (web client)
+#  Installs: Caddy (reverse proxy) + Synapse (homeserver) + Element (web client) + Coturn (TURN server) + LiveKit (SFU)
 #  All services run via Docker Compose.
 #
 #  Usage:  bash setup.sh
@@ -28,9 +28,9 @@ print_banner() {
     cat << 'EOF'
   ┌───────────────────────────────────────────────────┐
   │                                                   │
-  │         m a t r i x - e a s y - d e p l o y       │
+  │    m a t r i x - e a s y - d e p l o y - k i t    │
   │                                                   │
-  │   Your Matrix homeserver, standing up straight.   │
+  │     Your Matrix homeserver, easily deployed.      │
   │                                                   │
   └───────────────────────────────────────────────────┘
 EOF
