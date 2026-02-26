@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/scripts/lib.sh"
 
-DOCKER_COMPOSE="$(docker_compose_cmd)"
+IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
 DEPLOY_ENV="${SCRIPT_DIR}/.env"
 
 # =============================================================================
@@ -287,7 +287,6 @@ EOF
     success ".env written."
 
     # -- Build substitution map -----------------------------------------------
-    local vars_file
     vars_file="$(mktemp)"
     trap 'rm -f "$vars_file"' EXIT
 
@@ -376,15 +375,15 @@ setup_docker() {
 start_services() {
     echo
     info "Starting Caddy…"
-    (cd "${SCRIPT_DIR}/caddy" && $DOCKER_COMPOSE up -d --pull always)
+    (cd "${SCRIPT_DIR}/caddy" && "${DOCKER_COMPOSE[@]}" up -d --pull always)
     success "Caddy is up."
 
     echo
     local _element_label=""
-    local _element_profile=""
+    local _element_profile=()
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
         _element_label=" + Element"
-        _element_profile="--profile element"
+        _element_profile=(--profile element)
     fi
     info "Starting core Matrix services (PostgreSQL + Synapse${_element_label})…"
     info "  Pulling images — this may take a few minutes on first run."
@@ -392,13 +391,13 @@ start_services() {
         cd "${SCRIPT_DIR}/modules/core"
         # Pass the generated postgres password via environment
         POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
-            $DOCKER_COMPOSE $_element_profile up -d --pull always
+            "${DOCKER_COMPOSE[@]}" "${_element_profile[@]}" up -d --pull always
     )
     success "Core services started."
 
     echo
     info "Starting calls services (coturn + LiveKit)…"
-    (cd "${SCRIPT_DIR}/modules/calls" && $DOCKER_COMPOSE up -d --pull always)
+    (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" up -d --pull always)
     success "Calls services started."
 }
 
