@@ -411,11 +411,16 @@ setup_admin() {
     info "Waiting for Synapse to finish starting…"
     echo -e "  ${CYAN}(This usually takes 20–60 s on first boot while the database is initialised.)${RESET}"
 
-    # Poll the Synapse health endpoint
+    # Poll Synapse's health endpoint directly inside the container.
+    # This avoids relying on DNS resolution, Caddy TLS cert provisioning, or
+    # external network routing — all of which can fail independently on first
+    # boot.  Synapse exposes GET /health on its plain-HTTP port (8008) and
+    # returns 200 as soon as the process is ready, even before the full Matrix
+    # API is live.
     local attempt=0
-    local max=40
-    until curl -fsSL --max-time 5 \
-        "https://${MATRIX_DOMAIN}/_matrix/client/versions" &>/dev/null; do
+    local max=120   # 120 × 5 s = 10 min — enough for first-boot DB migrations
+    until docker exec matrix_synapse \
+            curl -fsSL --max-time 5 http://localhost:8008/health &>/dev/null; do
         attempt=$((attempt + 1))
         if [[ $attempt -ge $max ]]; then
             warn "Synapse hasn't responded after $((max * 5))s."
