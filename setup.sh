@@ -165,12 +165,22 @@ gather_config() {
     fi
 
     ask_yn INSTALL_ELEMENT_INPUT \
-        "Install Element web client? (served at your domain; skip if you use another client)" \
+        "Install Element web client? (skip if you already have a client)" \
         "y"
     if [[ "$INSTALL_ELEMENT_INPUT" == "y" ]]; then
         INSTALL_ELEMENT="true"
+        local _suggested_element_domain
+        _suggested_element_domain="element.$(extract_base_domain "$MATRIX_DOMAIN")"
+        ask ELEMENT_DOMAIN \
+            "Element domain  (e.g. element.example.com)" \
+            "$_suggested_element_domain"
+        while [[ -z "$ELEMENT_DOMAIN" ]]; do
+            warn "Element domain is required when installing Element."
+            ask ELEMENT_DOMAIN "Element domain" "$_suggested_element_domain"
+        done
     else
         INSTALL_ELEMENT="false"
+        ELEMENT_DOMAIN=""
     fi
 
     # -- Confirm summary -----------------------------------------------------
@@ -182,7 +192,20 @@ gather_config() {
     echo -e "  Admin user      : ${CYAN}${ADMIN_USERNAME}${RESET}"
     echo -e "  Public reg.     : ${CYAN}${ENABLE_REGISTRATION}${RESET}"
     echo -e "  Federation      : ${CYAN}${ENABLE_FEDERATION_INPUT}${RESET}"
-    echo -e "  Element client  : ${CYAN}${INSTALL_ELEMENT}${RESET}"
+    if [[ "$INSTALL_ELEMENT" == "true" ]]; then
+        echo -e "  Element client  : ${CYAN}${ELEMENT_DOMAIN}${RESET}"
+    else
+        echo -e "  Element client  : ${CYAN}not installed${RESET}"
+    fi
+    echo
+    if [[ "$INSTALL_ELEMENT" == "true" ]]; then
+        echo -e "  ${YELLOW}DNS check:${RESET} make sure these A records point to this server before proceeding:"
+        echo -e "    ${CYAN}${MATRIX_DOMAIN}${RESET}  →  <this server's IP>"
+        echo -e "    ${CYAN}${ELEMENT_DOMAIN}${RESET}  →  <this server's IP>"
+    else
+        echo -e "  ${YELLOW}DNS check:${RESET} make sure this A record points to this server before proceeding:"
+        echo -e "    ${CYAN}${MATRIX_DOMAIN}${RESET}  →  <this server's IP>"
+    fi
     echo
 
     ask_yn _confirm "Does this look right? Proceed?" "y"
@@ -224,6 +247,7 @@ FORM_SECRET=${FORM_SECRET}
 
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 INSTALL_ELEMENT=${INSTALL_ELEMENT}
+ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 EOF
     chmod 600 "$DEPLOY_ENV"
     success ".env written."
@@ -243,6 +267,7 @@ FORM_SECRET=${FORM_SECRET}
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 FEDERATION_WHITELIST=${FEDERATION_WHITELIST}
 ALLOW_PUBLIC_ROOMS_FEDERATION=${ALLOW_PUBLIC_ROOMS_FEDERATION}
+ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 EOF
 
     # -- Caddyfile (choose template based on whether Element is being installed) --
@@ -377,7 +402,9 @@ EOF
     echo -e "${RESET}"
     echo -e "  Your Matrix server is live. Here's where everything lives:\n"
     echo -e "  ${BOLD}Matrix homeserver${RESET}  https://${MATRIX_DOMAIN}/"
-    echo -e "  ${BOLD}Element client${RESET}     https://${MATRIX_DOMAIN}/"
+    if [[ "${INSTALL_ELEMENT}" == "true" ]]; then
+        echo -e "  ${BOLD}Element client${RESET}     https://${ELEMENT_DOMAIN}/"
+    fi
     echo -e "  ${BOLD}Synapse admin${RESET}      https://${MATRIX_DOMAIN}/_synapse/admin/v1/"
     echo
     echo -e "  ${BOLD}Your admin ID${RESET}      @${ADMIN_USERNAME}:${SERVER_NAME}"
