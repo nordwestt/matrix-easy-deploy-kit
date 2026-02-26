@@ -183,6 +183,19 @@ gather_config() {
         ELEMENT_DOMAIN=""
     fi
 
+    # -- LiveKit domain (for group video calls / Element Call) ----------------
+    echo
+    echo -e "  ${BOLD}Calls (TURN + LiveKit SFU)${RESET}"
+    local _suggested_livekit_domain
+    _suggested_livekit_domain="livekit.$(extract_base_domain "$MATRIX_DOMAIN")"
+    ask LIVEKIT_DOMAIN \
+        "LiveKit domain  (e.g. livekit.example.com)" \
+        "$_suggested_livekit_domain"
+    while [[ -z "$LIVEKIT_DOMAIN" ]]; do
+        warn "LiveKit domain is required."
+        ask LIVEKIT_DOMAIN "LiveKit domain" "$_suggested_livekit_domain"
+    done
+
     # -- Confirm summary -----------------------------------------------------
     echo
     echo -e "${BOLD}  Configuration summary${RESET}"
@@ -197,15 +210,14 @@ gather_config() {
     else
         echo -e "  Element client  : ${CYAN}not installed${RESET}"
     fi
+    echo -e "  LiveKit (calls) : ${CYAN}${LIVEKIT_DOMAIN}${RESET}"
     echo
+    echo -e "  ${YELLOW}DNS check:${RESET} make sure these A records point to this server before proceeding:"
+    echo -e "    ${CYAN}${MATRIX_DOMAIN}${RESET}  →  <this server's IP>"
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
-        echo -e "  ${YELLOW}DNS check:${RESET} make sure these A records point to this server before proceeding:"
-        echo -e "    ${CYAN}${MATRIX_DOMAIN}${RESET}  →  <this server's IP>"
         echo -e "    ${CYAN}${ELEMENT_DOMAIN}${RESET}  →  <this server's IP>"
-    else
-        echo -e "  ${YELLOW}DNS check:${RESET} make sure this A record points to this server before proceeding:"
-        echo -e "    ${CYAN}${MATRIX_DOMAIN}${RESET}  →  <this server's IP>"
     fi
+    echo -e "    ${CYAN}${LIVEKIT_DOMAIN}${RESET}  →  <this server's IP>"
     echo
 
     ask_yn _confirm "Does this look right? Proceed?" "y"
@@ -226,6 +238,22 @@ generate_config() {
     REGISTRATION_SHARED_SECRET="$(generate_secret)"
     MACAROON_SECRET_KEY="$(generate_secret)"
     FORM_SECRET="$(generate_secret)"
+    COTURN_SECRET="$(generate_secret)"
+    LIVEKIT_KEY="matrix"
+    LIVEKIT_SECRET="$(generate_secret)"
+
+    # Detect the server's public IP address — required by coturn for NAT traversal.
+    info "Detecting public IP address…"
+    SERVER_IP="$(curl -fsSL --max-time 10 https://api4.ipify.org 2>/dev/null || true)"
+    if [[ -z "$SERVER_IP" ]]; then
+        SERVER_IP="$(curl -fsSL --max-time 10 https://ifconfig.me 2>/dev/null || true)"
+    fi
+    if [[ -z "$SERVER_IP" ]]; then
+        warn "Could not auto-detect public IP. Edit modules/calls/coturn/turnserver.conf and set 'external-ip' manually."
+        SERVER_IP="REPLACE_WITH_YOUR_PUBLIC_IP"
+    else
+        success "Public IP detected: ${SERVER_IP}"
+    fi
 
     success "Secrets generated."
 
@@ -248,6 +276,12 @@ FORM_SECRET=${FORM_SECRET}
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 INSTALL_ELEMENT=${INSTALL_ELEMENT}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
+
+SERVER_IP=${SERVER_IP}
+COTURN_SECRET=${COTURN_SECRET}
+LIVEKIT_DOMAIN=${LIVEKIT_DOMAIN}
+LIVEKIT_KEY=${LIVEKIT_KEY}
+LIVEKIT_SECRET=${LIVEKIT_SECRET}
 EOF
     chmod 600 "$DEPLOY_ENV"
     success ".env written."
@@ -268,6 +302,11 @@ ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 FEDERATION_WHITELIST=${FEDERATION_WHITELIST}
 ALLOW_PUBLIC_ROOMS_FEDERATION=${ALLOW_PUBLIC_ROOMS_FEDERATION}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
+SERVER_IP=${SERVER_IP}
+COTURN_SECRET=${COTURN_SECRET}
+LIVEKIT_DOMAIN=${LIVEKIT_DOMAIN}
+LIVEKIT_KEY=${LIVEKIT_KEY}
+LIVEKIT_SECRET=${LIVEKIT_SECRET}
 EOF
 
     # -- Caddyfile (choose template based on whether Element is being installed) --
@@ -301,6 +340,22 @@ EOF
             "$vars_file"
         success "modules/core/element/config.json written."
     fi
+
+    # -- coturn config --------------------------------------------------------
+    info "Rendering coturn/turnserver.conf…"
+    render_template \
+        "${SCRIPT_DIR}/modules/calls/coturn/turnserver.conf.template" \
+        "${SCRIPT_DIR}/modules/calls/coturn/turnserver.conf" \
+        "$vars_file"
+    success "modules/calls/coturn/turnserver.conf written."
+
+    # -- LiveKit config -------------------------------------------------------
+    info "Rendering livekit/livekit.yaml…"
+    render_template \
+        "${SCRIPT_DIR}/modules/calls/livekit/livekit.yaml.template" \
+        "${SCRIPT_DIR}/modules/calls/livekit/livekit.yaml" \
+        "$vars_file"
+    success "modules/calls/livekit/livekit.yaml written."
 }
 
 # =============================================================================
@@ -340,6 +395,11 @@ start_services() {
             $DOCKER_COMPOSE $_element_profile up -d --pull always
     )
     success "Core services started."
+
+    echo
+    info "Starting calls services (coturn + LiveKit)…"
+    (cd "${SCRIPT_DIR}/modules/calls" && $DOCKER_COMPOSE up -d --pull always)
+    success "Calls services started."
 }
 
 # =============================================================================
@@ -405,12 +465,16 @@ EOF
     if [[ "${INSTALL_ELEMENT}" == "true" ]]; then
         echo -e "  ${BOLD}Element client${RESET}     https://${ELEMENT_DOMAIN}/"
     fi
+    echo -e "  ${BOLD}LiveKit SFU${RESET}        https://${LIVEKIT_DOMAIN}/"
+    echo -e "  ${BOLD}TURN server${RESET}        ${MATRIX_DOMAIN}:3478 (UDP/TCP) and :5349 (TLS)"
     echo -e "  ${BOLD}Synapse admin${RESET}      https://${MATRIX_DOMAIN}/_synapse/admin/v1/"
     echo
     echo -e "  ${BOLD}Your admin ID${RESET}      @${ADMIN_USERNAME}:${SERVER_NAME}"
     echo
     echo -e "  ${BOLD}Useful commands${RESET}"
     echo -e "    See logs (Synapse):     ${CYAN}docker logs -f matrix_synapse${RESET}"
+    echo -e "    See logs (LiveKit):     ${CYAN}docker logs -f matrix_livekit${RESET}"
+    echo -e "    See logs (coturn):      ${CYAN}docker logs -f matrix_coturn${RESET}"
     echo -e "    See logs (Caddy):       ${CYAN}docker logs -f caddy${RESET}"
     echo -e "    Stop all services:      ${CYAN}bash stop.sh${RESET}"
     echo -e "    Restart all services:   ${CYAN}bash start.sh${RESET}"

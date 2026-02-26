@@ -25,4 +25,7 @@ fi
 
 (cd "${SCRIPT_DIR}/modules/core" && $DOCKER_COMPOSE $_element_profile up -d)
 
+info "Starting calls services (coturn + LiveKit)…"
+(cd "${SCRIPT_DIR}/modules/calls" && $DOCKER_COMPOSE up -d)
+
 success "All services started."

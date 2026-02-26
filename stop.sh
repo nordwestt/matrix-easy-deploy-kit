@@ -5,6 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/scripts/lib.sh"
 DOCKER_COMPOSE="$(docker_compose_cmd)"
 
+info "Stopping calls services (coturn + LiveKit)…"
+(cd "${SCRIPT_DIR}/modules/calls" && $DOCKER_COMPOSE down)
+
 info "Stopping core services…"
 (cd "${SCRIPT_DIR}/modules/core" && $DOCKER_COMPOSE down)
 

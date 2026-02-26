@@ -37,3 +37,17 @@
     encode gzip
     log
 }
+
+# LiveKit SFU — WebSocket API for group video calls (Element Call)
+{{LIVEKIT_DOMAIN}} {
+    reverse_proxy matrix_livekit:7880
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    log
+}

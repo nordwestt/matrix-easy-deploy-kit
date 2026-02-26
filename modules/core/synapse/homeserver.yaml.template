@@ -99,6 +99,30 @@ url_preview_ip_range_blacklist:
   - "fc00::/7"
 
 # ----------------------------------------------------------------------------
+# Voice and video calls
+# ----------------------------------------------------------------------------
+
+# TURN server credentials for 1:1 WebRTC calls.
+# Synapse generates short-lived HMAC tokens; coturn validates them.
+turn_uris:
+  - "turns:{{MATRIX_DOMAIN}}:5349?transport=udp"
+  - "turns:{{MATRIX_DOMAIN}}:5349?transport=tcp"
+  - "turn:{{MATRIX_DOMAIN}}:3478?transport=udp"
+  - "turn:{{MATRIX_DOMAIN}}:3478?transport=tcp"
+turn_shared_secret: "{{COTURN_SECRET}}"
+turn_user_lifetime: 86400000
+turn_allow_guests: false
+
+# LiveKit SFU — used by Element Call for group calls (MatrixRTC).
+# Synapse uses the secret to sign JWT tokens for clients.
+experimental_features:
+  msc3266_enabled: true  # room summary API, required by Element Call
+
+livekit:
+  service_url: "https://{{LIVEKIT_DOMAIN}}"
+  secret: "{{LIVEKIT_SECRET}}"
+
+# ----------------------------------------------------------------------------
 # Modules (bridges, bots, spam checkers…)
 # Add module entries here as you enable them via setup.sh.
 # ----------------------------------------------------------------------------
