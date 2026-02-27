@@ -399,14 +399,14 @@ start_services() {
     info "Starting core Matrix services (PostgreSQL + Synapse${_element_label})…"
     info "  Pulling images — this may take a few minutes on first run."
 
-    # If a stale postgres_data volume exists (e.g. from an aborted previous run)
+    # If a stale core_postgres_data volume exists (e.g. from an aborted previous run)
     # it will have been initialised with a different POSTGRES_PASSWORD and Synapse
     # will fail to authenticate.  Drop it now so Postgres reinitialises cleanly.
     # The volume only contains Synapse's DB — user data lives in synapse_data/.
-    if docker volume inspect postgres_data &>/dev/null; then
-        warn "Existing 'postgres_data' volume detected — removing it so the database"
+    if docker volume inspect core_postgres_data &>/dev/null; then
+        warn "Existing 'core_postgres_data' volume detected — removing it so the database"
         warn "is re-initialised with the current POSTGRES_PASSWORD."
-        docker volume rm postgres_data
+        docker volume rm core_postgres_data
     fi
 
     (
