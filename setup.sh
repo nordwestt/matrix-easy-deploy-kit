@@ -366,6 +366,17 @@ setup_docker() {
     ensure_docker_network "caddy_net"
     ensure_docker_volume  "caddy_data"
 
+    # Create the Synapse data directory before Docker does.
+    # Docker auto-creates bind-mount dirs as root:root; Synapse runs as UID 991
+    # and would fail to write its signing key if the directory is root-owned.
+    local synapse_data_dir="${SCRIPT_DIR}/modules/core/synapse_data"
+    if [[ ! -d "$synapse_data_dir" ]]; then
+        info "Creating synapse_data directory…"
+        mkdir -p "$synapse_data_dir"
+        chmod 777 "$synapse_data_dir"
+        success "synapse_data directory created."
+    fi
+
     success "Docker infrastructure ready."
 }
 
@@ -387,6 +398,17 @@ start_services() {
     fi
     info "Starting core Matrix services (PostgreSQL + Synapse${_element_label})…"
     info "  Pulling images — this may take a few minutes on first run."
+
+    # If a stale postgres_data volume exists (e.g. from an aborted previous run)
+    # it will have been initialised with a different POSTGRES_PASSWORD and Synapse
+    # will fail to authenticate.  Drop it now so Postgres reinitialises cleanly.
+    # The volume only contains Synapse's DB — user data lives in synapse_data/.
+    if docker volume inspect postgres_data &>/dev/null; then
+        warn "Existing 'postgres_data' volume detected — removing it so the database"
+        warn "is re-initialised with the current POSTGRES_PASSWORD."
+        docker volume rm postgres_data
+    fi
+
     (
         cd "${SCRIPT_DIR}/modules/core"
         # Pass the generated postgres password via environment

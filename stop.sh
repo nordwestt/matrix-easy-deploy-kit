@@ -3,15 +3,23 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/scripts/lib.sh"
-DOCKER_COMPOSE="$(docker_compose_cmd)"
+IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
+
+# Load .env so Docker Compose can substitute variables (e.g. POSTGRES_PASSWORD)
+if [[ -f "${SCRIPT_DIR}/.env" ]]; then
+    set -o allexport
+    # shellcheck disable=SC1090
+    source "${SCRIPT_DIR}/.env"
+    set +o allexport
+fi
 
 info "Stopping calls services (coturn + LiveKit)…"
-(cd "${SCRIPT_DIR}/modules/calls" && $DOCKER_COMPOSE down)
+(cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" down)
 
 info "Stopping core services…"
-(cd "${SCRIPT_DIR}/modules/core" && $DOCKER_COMPOSE down)
+(cd "${SCRIPT_DIR}/modules/core" && "${DOCKER_COMPOSE[@]}" down)
 
 info "Stopping Caddy…"
-(cd "${SCRIPT_DIR}/caddy" && $DOCKER_COMPOSE down)
+(cd "${SCRIPT_DIR}/caddy" && "${DOCKER_COMPOSE[@]}" down)
 
 success "All services stopped. Your data is intact in Docker volumes."
