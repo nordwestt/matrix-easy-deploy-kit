@@ -14,6 +14,54 @@ One script. A few questions. Your own corner of the internet and the ability to 
   <td align="center"><img src="https://livekit.io/favicon.ico" alt="LiveKit" width="40"/></td>
 </tr></table>
 
+```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#2dd4bf', 'edgeLabelBackground':'#134e4a', 'nodeTextColor':'#e0f2f1', 'fontFamily':'Inter', 'nodeBorderRadius':'12px', 'clusterBorderRadius':'16px', 'secondaryColor':'#5eead4', 'tertiaryColor':'#99f6e4', 'lineColor':'#5eead4'}}}%%
+flowchart TD
+    subgraph Caddy["<img src='https://caddyserver.com/resources/images/logo-dark.svg' width='32'/> Caddy (TLS/Proxy)"]
+        style Caddy fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph Element["<img src='https://element.io/assets-32bb636196f91ed59d7a49190e26b42c/5ef25c0d30ee3108da4c25e9/5f365d3197194f8c73b00112_logo-mark-primary.svg' width='32'/> Element Web"]
+        style Element fill:#134e4a,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph Synapse["<img src='https://matrix.org/images/matrix-logo-white.svg' width='32'/> Synapse (Matrix)"]
+        style Synapse fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph PostgreSQL["<img src='https://www.postgresql.org/media/img/about/press/elephant.png' width='32'/> PostgreSQL"]
+        style PostgreSQL fill:#134e4a,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph Redis["<img src='https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Redis_logo.svg/250px-Redis_logo.svg.png' width='32'/> Redis"]
+        style Redis fill:#134e4a,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph Coturn["coturn (TURN)"]
+        style Coturn fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph LiveKit["<img src='https://livekit.io/favicon.ico' width='32'/> LiveKit (SFU)"]
+        style LiveKit fill:#134e4a,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    subgraph Hookshot["Hookshot (Bridge)"]
+        style Hookshot fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,rx:12px
+    end
+    
+    Caddy --> Element
+    Caddy --> Synapse
+    Caddy --> Hookshot
+    Element --> Synapse
+    Synapse --> PostgreSQL
+    Synapse --> Redis
+    Synapse --> Coturn
+    Synapse --> LiveKit
+    Hookshot --> Synapse
+    Hookshot --> Redis
+    Coturn --> Synapse
+    LiveKit --> Synapse
+    LiveKit --> Coturn
+    
+    classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
+    classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
+    class Caddy,Synapse,Coturn,Hookshot teal;
+    class Element,PostgreSQL,Redis,LiveKit mint;
+```
+
 ---
 
 ## What you get
