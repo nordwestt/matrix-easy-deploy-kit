@@ -58,6 +58,15 @@ trusted_key_servers:
 report_stats: false
 
 # ----------------------------------------------------------------------------
+# Device linking / QR sign-in
+# ----------------------------------------------------------------------------
+
+# Allow logging in on a new device via an existing signed-in session
+# (used by QR code device linking flows in Matrix clients).
+login_via_existing_session:
+  enabled: true
+
+# ----------------------------------------------------------------------------
 # Registration
 # ----------------------------------------------------------------------------
 
