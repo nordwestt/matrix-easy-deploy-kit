@@ -183,8 +183,8 @@ This calls the module's own `setup.sh`, which can ask its own questions, pull it
 
 | Feature | How to use |
 |---------|------------|
-| **Generic webhooks** | Invite `@hookshot` to a room, run `!hookshot setup webhook` to get an inbound URL |
-| **RSS/Atom feeds** | `!hookshot setup feed <url>` — posts new items to the room |
+| **Generic webhooks** | Invite `@hookshot` to a room, run `!hookshot webhook <name>` to get an inbound URL |
+| **RSS/Atom feeds** | `!hookshot feed <url>` — posts new items to the room |
 | **GitHub** (optional) | Configure `github:` block in `config.yml`, re-run or restart |
 | **GitLab** (optional) | Configure `gitlab:` block in `config.yml` |
 | **Jira** (optional) | Configure `jira:` block in `config.yml` |
@@ -210,6 +210,11 @@ docker restart matrix-hookshot
 ```bash
 bash scripts/hookshot-check.sh
 ```
+
+**Command caveats (common gotchas):**
+- Room commands (`!hookshot ...`) require an unencrypted room unless Hookshot encryption support is configured.
+- Give `@hookshot` enough power in the room (typically Moderator / PL50) so it can write room state.
+- In DMs, `help` may look sparse if you have only webhooks/feeds enabled and no GitHub/GitLab/Jira auth features configured.
 
 More modules coming. Watch this space.
 
