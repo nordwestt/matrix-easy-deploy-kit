@@ -65,7 +65,47 @@ load_env() {
 }
 
 # =============================================================================
-# Step 2 — Gather Hookshot-specific config
+# Step 1b — Verify SERVER_NAME matches Synapse's actual server_name
+# =============================================================================
+verify_server_name() {
+    if [[ ! -f "$HOMESERVER_YAML" ]]; then
+        warn "homeserver.yaml not found — skipping server_name cross-check."
+        return
+    fi
+
+    # Read the server_name Synapse is actually using
+    local actual_server_name
+    actual_server_name="$(grep -E '^server_name:' "$HOMESERVER_YAML" \
+        | head -1 | awk '{print $2}' | tr -d '"' )"
+
+    if [[ -z "$actual_server_name" ]]; then
+        warn "Could not read server_name from homeserver.yaml — skipping check."
+        return
+    fi
+
+    if [[ "$actual_server_name" == "$SERVER_NAME" ]]; then
+        success "server_name check passed: ${SERVER_NAME}"
+        return
+    fi
+
+    # Mismatch — this is the root cause of the 'Can't join remote room' error.
+    echo
+    warn   "SERVER_NAME mismatch detected!"
+    echo   -e "  ${BOLD}.env has:${RESET}             ${RED}${SERVER_NAME}${RESET}"
+    echo   -e "  ${BOLD}homeserver.yaml has:${RESET}  ${GREEN}${actual_server_name}${RESET}"
+    echo
+    echo   -e "  Hookshot's bridge.domain MUST match Synapse's server_name."
+    echo   -e "  Using the homeserver.yaml value for this module setup."
+    echo
+    echo   -e "  ${YELLOW}If you also want to fix .env, update SERVER_NAME=${actual_server_name}${RESET}"
+    echo   -e "  ${YELLOW}and re-run: bash setup.sh --module hookshot${RESET}"
+    echo
+
+    # Override for the duration of THIS run only
+    SERVER_NAME="$actual_server_name"
+    export SERVER_NAME
+    info "Using server_name=${SERVER_NAME} for hookshot config."
+}
 # =============================================================================
 gather_config() {
     echo
@@ -291,7 +331,8 @@ test_hookshot() {
     echo
     info "Smoke test (manual — requires the bot to be in a room first):"
     echo
-    echo -e "  ${CYAN}# 1. Invite the bot to any Matrix room, then DM it:${RESET}"
+    echo -e "  ${CYAN}# 1. Create a BRAND NEW room in Element (important: use a room created\n  #    AFTER hookshot was set up, so its room ID contains your real server_name).${RESET}"
+    echo -e "  ${CYAN}#    Then invite the bot:  @hookshot:${SERVER_NAME}${RESET}"
     echo -e "  ${CYAN}!hookshot setup webhook${RESET}"
     echo
     echo -e "  ${CYAN}# 2. The bot replies with a unique webhook URL. Test it with:${RESET}"
@@ -364,28 +405,32 @@ main() {
 EOF
     echo -e "${RESET}"
 
-    echo -e "${BOLD}  Step 1 of 6 — Load existing configuration${RESET}"
+    echo -e "${BOLD}  Step 1 of 7 — Load existing configuration${RESET}"
     load_env
 
     echo
-    echo -e "${BOLD}  Step 2 of 6 — Hookshot configuration${RESET}"
+    echo -e "${BOLD}  Step 2 of 7 — Verify server_name consistency${RESET}"
+    verify_server_name
+
+    echo
+    echo -e "${BOLD}  Step 3 of 7 — Hookshot configuration${RESET}"
     gather_config
 
     echo
-    echo -e "${BOLD}  Step 3 of 6 — Generating secrets and config files${RESET}"
+    echo -e "${BOLD}  Step 4 of 7 — Generating secrets and config files${RESET}"
     generate_config
 
     echo
-    echo -e "${BOLD}  Step 4 of 6 — Registering appservice with Synapse${RESET}"
+    echo -e "${BOLD}  Step 5 of 7 — Registering appservice with Synapse${RESET}"
     register_appservice
 
     echo
-    echo -e "${BOLD}  Step 5 of 6 — Starting services${RESET}"
+    echo -e "${BOLD}  Step 6 of 7 — Starting services${RESET}"
     update_caddy
     start_services
 
     echo
-    echo -e "${BOLD}  Step 6 of 6 — Smoke test${RESET}"
+    echo -e "${BOLD}  Step 7 of 7 — Smoke test${RESET}"
     test_hookshot
 
     print_summary
