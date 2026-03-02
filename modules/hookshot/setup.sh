@@ -25,6 +25,12 @@ source "${PROJECT_ROOT}/scripts/lib.sh"
 
 IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
 
+# Temp file used in generate_config(); declared here so the EXIT trap can
+# always reference it — local variables go out of scope before EXIT fires.
+VARS_FILE=""
+cleanup() { [[ -n "$VARS_FILE" ]] && rm -f "$VARS_FILE"; }
+trap cleanup EXIT
+
 DEPLOY_ENV="${PROJECT_ROOT}/.env"
 MODULE_DIR="${SCRIPT_DIR}"
 HOOKSHOT_DATA_DIR="${MODULE_DIR}/hookshot"
@@ -138,11 +144,9 @@ EOF
     fi
 
     # Build substitution map
-    local vars_file
-    vars_file="$(mktemp)"
-    trap 'rm -f "$vars_file"' EXIT
+    VARS_FILE="$(mktemp)"
 
-    cat > "$vars_file" <<EOF
+    cat > "$VARS_FILE" <<EOF
 SERVER_NAME=${SERVER_NAME}
 MATRIX_DOMAIN=${MATRIX_DOMAIN}
 HOOKSHOT_DOMAIN=${HOOKSHOT_DOMAIN}
@@ -155,7 +159,7 @@ EOF
     render_template \
         "${HOOKSHOT_DATA_DIR}/config.yml.template" \
         "${HOOKSHOT_DATA_DIR}/config.yml" \
-        "$vars_file"
+        "$VARS_FILE"
     success "hookshot/config.yml written."
 
     # Render registration.yml
@@ -163,7 +167,7 @@ EOF
     render_template \
         "${HOOKSHOT_DATA_DIR}/registration.yml.template" \
         "${HOOKSHOT_DATA_DIR}/registration.yml" \
-        "$vars_file"
+        "$VARS_FILE"
     success "hookshot/registration.yml written."
 }
 
@@ -278,6 +282,31 @@ start_services() {
 }
 
 # =============================================================================
+# Step 6 — Smoke-test: create a generic webhook and POST to it
+# =============================================================================
+test_hookshot() {
+
+    # The provisioning API requires auth we don't have at this stage, so fall
+    # back to showing the user the manual curl command to run after inviting the bot.
+    echo
+    info "Smoke test (manual — requires the bot to be in a room first):"
+    echo
+    echo -e "  ${CYAN}# 1. Invite the bot to any Matrix room, then DM it:${RESET}"
+    echo -e "  ${CYAN}!hookshot setup webhook${RESET}"
+    echo
+    echo -e "  ${CYAN}# 2. The bot replies with a unique webhook URL. Test it with:${RESET}"
+    echo -e "  ${CYAN}curl -X POST https://${HOOKSHOT_DOMAIN}/webhook/<token> \\${RESET}"
+    echo -e "  ${CYAN}     -H 'Content-Type: application/json' \\${RESET}"
+    echo -e "  ${CYAN}     -d '{"text": "Hello from Hookshot!"}'${RESET}"
+    echo
+    echo -e "  ${CYAN}# 3. You should see the message appear in the Matrix room.${RESET}"
+    echo
+    echo -e "  ${CYAN}# Subscribe to an RSS/Atom feed (in a room with the bot):${RESET}"
+    echo -e "  ${CYAN}!hookshot setup feed https://example.com/feed.rss${RESET}"
+    echo
+}
+
+# =============================================================================
 # Summary
 # =============================================================================
 print_summary() {
@@ -335,25 +364,29 @@ main() {
 EOF
     echo -e "${RESET}"
 
-    echo -e "${BOLD}  Step 1 of 5 — Load existing configuration${RESET}"
+    echo -e "${BOLD}  Step 1 of 6 — Load existing configuration${RESET}"
     load_env
 
     echo
-    echo -e "${BOLD}  Step 2 of 5 — Hookshot configuration${RESET}"
+    echo -e "${BOLD}  Step 2 of 6 — Hookshot configuration${RESET}"
     gather_config
 
     echo
-    echo -e "${BOLD}  Step 3 of 5 — Generating secrets and config files${RESET}"
+    echo -e "${BOLD}  Step 3 of 6 — Generating secrets and config files${RESET}"
     generate_config
 
     echo
-    echo -e "${BOLD}  Step 4 of 5 — Registering appservice with Synapse${RESET}"
+    echo -e "${BOLD}  Step 4 of 6 — Registering appservice with Synapse${RESET}"
     register_appservice
 
     echo
-    echo -e "${BOLD}  Step 5 of 5 — Starting services${RESET}"
+    echo -e "${BOLD}  Step 5 of 6 — Starting services${RESET}"
     update_caddy
     start_services
+
+    echo
+    echo -e "${BOLD}  Step 6 of 6 — Smoke test${RESET}"
+    test_hookshot
 
     print_summary
 }
