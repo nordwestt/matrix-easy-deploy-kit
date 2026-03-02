@@ -127,7 +127,7 @@ docker logs -f matrix_element
 docker logs -f matrix_postgres
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
-docker logs -f matrix_hookshot  # if hookshot module is installed
+docker logs -f matrix-hookshot  # if hookshot module is installed
 ```
 
 **Stop all services** (data stays intact in Docker volumes)
@@ -200,10 +200,10 @@ The wizard will ask for a webhook domain (e.g. `hookshot.example.com`), generate
 **After setup:**
 ```bash
 # View logs
-docker logs -f matrix_hookshot
+docker logs -f matrix-hookshot
 
 # Enable GitHub / GitLab / Jira — edit config.yml then:
-docker restart matrix_hookshot
+docker restart matrix-hookshot
 ```
 
 More modules coming. Watch this space.

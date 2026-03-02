@@ -7,7 +7,7 @@ as_token: {{HOOKSHOT_AS_TOKEN}}
 hs_token: {{HOOKSHOT_HS_TOKEN}}
 
 # The URL Synapse uses to push events to Hookshot (internal Docker network)
-url: "http://matrix_hookshot:9993"
+url: "http://matrix-hookshot:9993"
 
 sender_localpart: hookshot
 rate_limited: false

@@ -237,7 +237,7 @@ update_caddy() {
 
 # Hookshot bridge — webhook ingress for GitHub, GitLab, generic hooks, etc.
 ${HOOKSHOT_DOMAIN} {
-    reverse_proxy matrix_hookshot:9000
+    reverse_proxy matrix-hookshot:9000
 
     header {
         X-Content-Type-Options nosniff
@@ -323,7 +323,7 @@ EOF
     echo -e "  Hookshot is live. Here's a quick reference:\n"
     echo -e "  ${BOLD}Webhook ingress${RESET}     https://${HOOKSHOT_DOMAIN}/"
     echo -e "  ${BOLD}Generic webhook URL${RESET} https://${HOOKSHOT_DOMAIN}/webhook/<token>"
-    echo -e "  ${BOLD}Metrics${RESET}             http://matrix_hookshot:9002/metrics (internal)"
+    echo -e "  ${BOLD}Metrics${RESET}             http://matrix-hookshot:9002/metrics (internal)"
     echo
     echo -e "  ${BOLD}Bot username${RESET}        @hookshot:${SERVER_NAME}"
     echo -e "    Invite this bot to a room to start connecting services."
@@ -335,11 +335,11 @@ EOF
     echo -e "  ${BOLD}To enable GitHub / GitLab / Jira${RESET}"
     echo -e "    Uncomment and fill in the relevant section in:"
     echo -e "    ${CYAN}modules/hookshot/hookshot/config.yml${RESET}"
-    echo -e "    Then restart: ${CYAN}docker restart matrix_hookshot${RESET}"
+    echo -e "    Then restart: ${CYAN}docker restart matrix-hookshot${RESET}"
     echo
     echo -e "  ${BOLD}Useful commands${RESET}"
-    echo -e "    Logs:     ${CYAN}docker logs -f matrix_hookshot${RESET}"
-    echo -e "    Restart:  ${CYAN}docker restart matrix_hookshot${RESET}"
+    echo -e "    Logs:     ${CYAN}docker logs -f matrix-hookshot${RESET}"
+    echo -e "    Restart:  ${CYAN}docker restart matrix-hookshot${RESET}"
     echo -e "    Stop:     ${CYAN}cd modules/hookshot && docker compose down${RESET}"
     echo
     echo -e "  Registration file: ${CYAN}modules/hookshot/hookshot/registration.yml${RESET}"
