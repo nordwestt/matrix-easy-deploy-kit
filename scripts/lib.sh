@@ -85,6 +85,37 @@ generate_secret() {
     openssl rand -hex 32
 }
 
+# generate_ulid
+# Generates a 26-char Crockford Base32 ULID string.
+generate_ulid() {
+    python3 - <<'PY'
+import os
+import time
+
+alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+
+def encode_base32(value: int, length: int) -> str:
+    out = []
+    for _ in range(length):
+        out.append(alphabet[value & 31])
+        value >>= 5
+    return ''.join(reversed(out))
+
+timestamp_ms = int(time.time() * 1000) & ((1 << 48) - 1)
+random_bits = int.from_bytes(os.urandom(10), 'big')
+
+print(encode_base32(timestamp_ms, 10) + encode_base32(random_bits, 16))
+PY
+}
+
+# yaml_quote VALUE
+# Returns a YAML-safe single-quoted scalar.
+yaml_quote() {
+    local raw="$1"
+    raw=$(printf '%s' "$raw" | sed "s/'/''/g")
+    printf "'%s'" "$raw"
+}
+
 # ---------------------------------------------------------------------------
 # Template rendering
 # Replaces all {{KEY}} occurrences in a file using a plain-text env var map.

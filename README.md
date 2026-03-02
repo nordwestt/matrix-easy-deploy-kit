@@ -63,6 +63,7 @@ The wizard will ask you:
 6. Whether to install Element Web, and on which domain
 7. **Your auth domain (MAS)** — something like `auth.example.com` (defaults to `auth.<basedomain>`)
 8. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
+9. *(Optional)* Upstream OIDC provider details (issuer URL, client ID, client secret) for SSO
 
 Everything else — database passwords, signing keys, TURN secrets, MAS encryption/shared secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
 

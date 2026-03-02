@@ -194,6 +194,54 @@ gather_config() {
         ask AUTH_DOMAIN "Authentication domain for OAuth/OIDC (MAS)" "$_suggested_auth_domain"
     done
 
+    # -- Upstream OIDC provider for MAS (optional) ---------------------------
+    echo
+    echo -e "  ${BOLD}Auth provider (optional)${RESET}"
+    ask_yn ENABLE_MAS_UPSTREAM_OIDC_INPUT \
+        "Configure an upstream OIDC provider for SSO now?" \
+        "n"
+    if [[ "$ENABLE_MAS_UPSTREAM_OIDC_INPUT" == "y" ]]; then
+        ENABLE_MAS_UPSTREAM_OIDC="true"
+        MAS_UPSTREAM_OIDC_PROVIDER_ID="$(generate_ulid)"
+
+        ask MAS_UPSTREAM_OIDC_PROVIDER_NAME \
+            "Provider display name (shown on MAS login screen)" \
+            "Single Sign-On"
+        while [[ -z "$MAS_UPSTREAM_OIDC_PROVIDER_NAME" ]]; do
+            warn "Provider display name is required."
+            ask MAS_UPSTREAM_OIDC_PROVIDER_NAME "Provider display name" "Single Sign-On"
+        done
+
+        ask MAS_UPSTREAM_OIDC_ISSUER \
+            "OIDC issuer URL (e.g. https://idp.example.com/)" \
+            ""
+        while [[ -z "$MAS_UPSTREAM_OIDC_ISSUER" ]]; do
+            warn "OIDC issuer URL is required."
+            ask MAS_UPSTREAM_OIDC_ISSUER "OIDC issuer URL" ""
+        done
+
+        ask MAS_UPSTREAM_OIDC_CLIENT_ID \
+            "OIDC client ID" \
+            ""
+        while [[ -z "$MAS_UPSTREAM_OIDC_CLIENT_ID" ]]; do
+            warn "OIDC client ID is required."
+            ask MAS_UPSTREAM_OIDC_CLIENT_ID "OIDC client ID" ""
+        done
+
+        ask_secret MAS_UPSTREAM_OIDC_CLIENT_SECRET "OIDC client secret"
+        while [[ -z "$MAS_UPSTREAM_OIDC_CLIENT_SECRET" ]]; do
+            warn "OIDC client secret is required."
+            ask_secret MAS_UPSTREAM_OIDC_CLIENT_SECRET "OIDC client secret"
+        done
+    else
+        ENABLE_MAS_UPSTREAM_OIDC="false"
+        MAS_UPSTREAM_OIDC_PROVIDER_ID=""
+        MAS_UPSTREAM_OIDC_PROVIDER_NAME=""
+        MAS_UPSTREAM_OIDC_ISSUER=""
+        MAS_UPSTREAM_OIDC_CLIENT_ID=""
+        MAS_UPSTREAM_OIDC_CLIENT_SECRET=""
+    fi
+
     # -- LiveKit domain (for group video calls / Element Call) ----------------
     echo
     echo -e "  ${BOLD}Calls (TURN + LiveKit SFU)${RESET}"
@@ -222,6 +270,11 @@ gather_config() {
         echo -e "  Element client  : ${CYAN}not installed${RESET}"
     fi
     echo -e "  Auth service    : ${CYAN}${AUTH_DOMAIN}${RESET}"
+    if [[ "$ENABLE_MAS_UPSTREAM_OIDC" == "true" ]]; then
+        echo -e "  Upstream OIDC   : ${CYAN}${MAS_UPSTREAM_OIDC_PROVIDER_NAME}${RESET} (${MAS_UPSTREAM_OIDC_ISSUER})"
+    else
+        echo -e "  Upstream OIDC   : ${CYAN}not configured${RESET}"
+    fi
     echo -e "  LiveKit (calls) : ${CYAN}${LIVEKIT_DOMAIN}${RESET}"
     echo
     echo -e "  ${YELLOW}DNS check:${RESET} make sure these A records point to this server before proceeding:"
@@ -307,6 +360,12 @@ LIVEKIT_SECRET=${LIVEKIT_SECRET}
 MAS_SHARED_SECRET=${MAS_SHARED_SECRET}
 MAS_ENCRYPTION_SECRET=${MAS_ENCRYPTION_SECRET}
 MAS_POSTGRES_PASSWORD=${MAS_POSTGRES_PASSWORD}
+ENABLE_MAS_UPSTREAM_OIDC=${ENABLE_MAS_UPSTREAM_OIDC}
+MAS_UPSTREAM_OIDC_PROVIDER_ID=${MAS_UPSTREAM_OIDC_PROVIDER_ID}
+MAS_UPSTREAM_OIDC_PROVIDER_NAME=${MAS_UPSTREAM_OIDC_PROVIDER_NAME}
+MAS_UPSTREAM_OIDC_ISSUER=${MAS_UPSTREAM_OIDC_ISSUER}
+MAS_UPSTREAM_OIDC_CLIENT_ID=${MAS_UPSTREAM_OIDC_CLIENT_ID}
+MAS_UPSTREAM_OIDC_CLIENT_SECRET=${MAS_UPSTREAM_OIDC_CLIENT_SECRET}
 
 SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
 SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
@@ -384,6 +443,22 @@ EOF
         "${SCRIPT_DIR}/modules/core/mas/config.yaml.template" \
         "${SCRIPT_DIR}/modules/core/mas/config.yaml" \
         "$vars_file"
+
+        if [[ "${ENABLE_MAS_UPSTREAM_OIDC}" == "true" ]]; then
+                info "Adding upstream OIDC provider to mas/config.yaml…"
+                cat >> "${SCRIPT_DIR}/modules/core/mas/config.yaml" <<EOF
+
+upstream_oauth2:
+    providers:
+        - id: $(yaml_quote "${MAS_UPSTREAM_OIDC_PROVIDER_ID}")
+            human_name: $(yaml_quote "${MAS_UPSTREAM_OIDC_PROVIDER_NAME}")
+            issuer: $(yaml_quote "${MAS_UPSTREAM_OIDC_ISSUER}")
+            client_id: $(yaml_quote "${MAS_UPSTREAM_OIDC_CLIENT_ID}")
+            client_secret: $(yaml_quote "${MAS_UPSTREAM_OIDC_CLIENT_SECRET}")
+            token_endpoint_auth_method: client_secret_post
+            scope: "openid profile email"
+EOF
+        fi
     success "modules/core/mas/config.yaml written."
 
     # -- Element config.json (only when Element is being installed) -------------
