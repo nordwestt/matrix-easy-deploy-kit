@@ -144,6 +144,13 @@ docker logs -f matrix_coturn
 docker logs -f matrix-hookshot  # if hookshot module is installed
 ```
 
+**Create a user account (interactive)**
+```bash
+bash scripts/create-user.sh
+```
+
+The helper asks for a username, generates a secure temporary password by default (or lets you set a custom one), and can optionally grant admin privileges.
+
 **Stop all services** (data stays intact in Docker volumes)
 ```bash
 bash stop.sh
