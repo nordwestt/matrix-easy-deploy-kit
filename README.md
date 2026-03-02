@@ -1,8 +1,8 @@
-# matrix-easy-deploy
+# 💊 MED-kit (Matrix Easy Deploy)
 
-A no-nonsense, beginner-friendly way to run your own [Matrix](https://matrix.org) homeserver.
+An easy way to deploy your own [Matrix](https://matrix.org) homeserver.
 
-One script. A few questions. Your own corner of the internet.
+One script. A few questions. Your own corner of the internet and the ability to federate. 
 
 ---
 
