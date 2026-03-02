@@ -10,6 +10,17 @@ One script. A few questions. Your own corner of the internet and the ability to 
 
 After running `setup.sh` you'll have a working Matrix homeserver — the whole stack, containerised and wired together:
 
+
+<p align="center">
+  <img src="https://matrix.org/images/matrix-logo-white.svg" alt="Synapse" width="40" style="margin:0 16px; vertical-align:middle;"/>
+  <img src="https://element.io/assets-32bb636196f91ed59d7a49190e26b42c/5ef25c0d30ee3108da4c25e9/5f365d3197194f8c73b00112_logo-mark-primary.svg" alt="Element Web" width="40" style="margin:0 16px; vertical-align:middle;"/>
+  <img src="https://caddyserver.com/resources/images/logo-dark.svg" alt="Caddy" width="40" style="margin:0 16px; vertical-align:middle;"/>
+  <img src="https://www.postgresql.org/media/img/about/press/elephant.png" alt="PostgreSQL" width="40" style="margin:0 16px; vertical-align:middle;"/>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Redis_logo.svg/250px-Redis_logo.svg.png" alt="Redis" width="40" style="margin:0 16px; vertical-align:middle;"/>
+  <img src="https://avatars.githubusercontent.com/u/1019456?s=200&v=4" alt="coturn" width="40" style="margin:0 16px; vertical-align:middle;"/>
+  <img src="https://livekit.io/favicon.ico" alt="LiveKit" width="40" style="margin:0 16px; vertical-align:middle;"/>
+</p>
+
 | Service | What it does |
 |---------|-------------|
 | <img src="https://matrix.org/images/matrix-logo-white.svg" alt="Synapse" width="28"/> **[Synapse](https://github.com/element-hq/synapse)** | The Matrix homeserver. Handles federation, rooms, messages. |
