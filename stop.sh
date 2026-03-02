@@ -13,6 +13,12 @@ if [[ -f "${SCRIPT_DIR}/.env" ]]; then
     set +o allexport
 fi
 
+# Stop Hookshot if it was installed as a module
+if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/config.yml" ]]; then
+    info "Stopping Hookshot…"
+    (cd "${SCRIPT_DIR}/modules/hookshot" && "${DOCKER_COMPOSE[@]}" down)
+fi
+
 info "Stopping calls services (coturn + LiveKit)…"
 (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" down)
 
