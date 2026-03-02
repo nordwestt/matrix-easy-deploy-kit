@@ -37,6 +37,8 @@ HOOKSHOT_DATA_DIR="${MODULE_DIR}/hookshot"
 CORE_SYNAPSE_DATA_DIR="${PROJECT_ROOT}/modules/core/synapse_data"
 HOMESERVER_YAML="${PROJECT_ROOT}/modules/core/synapse/homeserver.yaml"
 CADDYFILE="${PROJECT_ROOT}/caddy/Caddyfile"
+BOOTSTRAP_SCRIPT="${PROJECT_ROOT}/scripts/bootstrap-cross-signing.py"
+HOOKSHOT_TRUST_SECRETS_FILE="${HOOKSHOT_DATA_DIR}/bot-cross-signing.json"
 
 # =============================================================================
 # Step 1 — Load existing deployment environment
@@ -70,6 +72,17 @@ load_env() {
     export SHARED_REDIS_HOST SHARED_REDIS_PORT SHARED_REDIS_URL HOOKSHOT_REDIS_DB HOOKSHOT_REDIS_URI
 
     success "Loaded: MATRIX_DOMAIN=${MATRIX_DOMAIN}, SERVER_NAME=${SERVER_NAME}"
+}
+
+set_or_append_env_var() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^${key}=" "$DEPLOY_ENV"; then
+        sed -i "s|^${key}=.*$|${key}=${value}|" "$DEPLOY_ENV"
+    else
+        echo "${key}=${value}" >> "$DEPLOY_ENV"
+    fi
 }
 
 # =============================================================================
@@ -418,7 +431,95 @@ start_services() {
 }
 
 # =============================================================================
-# Step 6 — Smoke-test: create a generic webhook and POST to it
+# Step 7 — Bootstrap bot trust for E2EE (cross-signing)
+# =============================================================================
+bootstrap_hookshot_trust() {
+    local hookshot_mxid="@hookshot:${SERVER_NAME}"
+    local temp_admin_username="hooksetup$(openssl rand -hex 4)"
+    local temp_admin_password
+    local bot_password
+    local access_token
+    local encoded_hookshot_mxid
+    local user_upsert_output
+    local user_status
+
+    if [[ ! -f "$BOOTSTRAP_SCRIPT" ]]; then
+        die "Missing bootstrap helper script at ${BOOTSTRAP_SCRIPT}."
+    fi
+
+    if [[ -f "$HOOKSHOT_TRUST_SECRETS_FILE" ]]; then
+        info "Hookshot trust secrets already exist at ${HOOKSHOT_TRUST_SECRETS_FILE} — skipping bootstrap."
+        return
+    fi
+
+    if [[ -z "${REGISTRATION_SHARED_SECRET:-}" ]]; then
+        die "REGISTRATION_SHARED_SECRET not found in .env; required to automate Hookshot trust bootstrap."
+    fi
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        die "python3 is required for trust bootstrap."
+    fi
+
+    info "Creating temporary admin user for trust bootstrap…"
+    temp_admin_password="$(generate_secret)"
+    bash "${PROJECT_ROOT}/scripts/create-admin.sh" \
+        "https://${MATRIX_DOMAIN}" \
+        "${REGISTRATION_SHARED_SECRET}" \
+        "${temp_admin_username}" \
+        "${temp_admin_password}" >/dev/null
+    success "Temporary admin created: @${temp_admin_username}:${SERVER_NAME}"
+
+    info "Logging in temporary admin…"
+    access_token="$(curl -fsSL -X POST "https://${MATRIX_DOMAIN}/_matrix/client/v3/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"@${temp_admin_username}:${SERVER_NAME}\"},\"password\":\"${temp_admin_password}\",\"initial_device_display_name\":\"Hookshot Setup Admin\"}" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
+    if [[ -z "$access_token" ]]; then
+        die "Failed to obtain temporary admin access token."
+    fi
+
+    bot_password="${HOOKSHOT_BOT_PASSWORD:-}"
+    if [[ -z "$bot_password" ]]; then
+        bot_password="$(generate_secret)"
+        set_or_append_env_var "HOOKSHOT_BOT_PASSWORD" "$bot_password"
+        export HOOKSHOT_BOT_PASSWORD="$bot_password"
+        success "Generated and saved HOOKSHOT_BOT_PASSWORD in .env"
+    else
+        info "Using existing HOOKSHOT_BOT_PASSWORD from .env"
+    fi
+
+    info "Ensuring ${hookshot_mxid} has a login password…"
+    encoded_hookshot_mxid="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$hookshot_mxid")"
+    user_upsert_output="$(mktemp)"
+    user_status="$(curl -sS -o "$user_upsert_output" -w "%{http_code}" \
+        -X PUT "https://${MATRIX_DOMAIN}/_synapse/admin/v2/users/${encoded_hookshot_mxid}" \
+        -H "Authorization: Bearer ${access_token}" \
+        -H "Content-Type: application/json" \
+        -d "{\"password\":\"${bot_password}\",\"logout_devices\":false,\"deactivated\":false,\"displayname\":\"Hookshot\"}")"
+
+    if [[ "$user_status" != "200" ]] && [[ "$user_status" != "201" ]]; then
+        warn "Synapse user upsert failed (HTTP ${user_status})."
+        cat "$user_upsert_output" | sed 's/^/    /'
+        rm -f "$user_upsert_output"
+        die "Could not set password on ${hookshot_mxid}."
+    fi
+    rm -f "$user_upsert_output"
+    success "Hookshot user password configured."
+
+    info "Bootstrapping cross-signing keys and signing Hookshot device…"
+    python3 "$BOOTSTRAP_SCRIPT" \
+        --homeserver "https://${MATRIX_DOMAIN}" \
+        --mxid "$hookshot_mxid" \
+        --password "$bot_password" \
+        --secrets-out "$HOOKSHOT_TRUST_SECRETS_FILE" >/dev/null
+
+    chmod 600 "$HOOKSHOT_TRUST_SECRETS_FILE"
+    set_or_append_env_var "HOOKSHOT_TRUST_SECRETS_FILE" "$HOOKSHOT_TRUST_SECRETS_FILE"
+    success "Hookshot trust bootstrap complete. Secrets saved to ${HOOKSHOT_TRUST_SECRETS_FILE}."
+}
+
+# =============================================================================
+# Step 8 — Smoke-test: create a generic webhook and POST to it
 # =============================================================================
 test_hookshot() {
 
@@ -483,6 +584,7 @@ EOF
     echo -e "  Registration file: ${CYAN}modules/hookshot/hookshot/registration.yml${RESET}"
     echo -e "  Config file:       ${CYAN}modules/hookshot/hookshot/config.yml${RESET}"
     echo -e "  Passkey:           ${CYAN}modules/hookshot/hookshot/passkey.pem${RESET} (keep private)"
+    echo -e "  Bot trust secrets: ${CYAN}modules/hookshot/hookshot/bot-cross-signing.json${RESET} (keep private)"
     echo
 }
 
@@ -502,33 +604,37 @@ main() {
 EOF
     echo -e "${RESET}"
 
-    echo -e "${BOLD}  Step 1 of 7 — Load existing configuration${RESET}"
+    echo -e "${BOLD}  Step 1 of 8 — Load existing configuration${RESET}"
     load_env
 
     echo
-    echo -e "${BOLD}  Step 2 of 7 — Verify server_name consistency${RESET}"
+    echo -e "${BOLD}  Step 2 of 8 — Verify server_name consistency${RESET}"
     verify_server_name
 
     echo
-    echo -e "${BOLD}  Step 3 of 7 — Hookshot configuration${RESET}"
+    echo -e "${BOLD}  Step 3 of 8 — Hookshot configuration${RESET}"
     gather_config
 
     echo
-    echo -e "${BOLD}  Step 4 of 7 — Generating secrets and config files${RESET}"
+    echo -e "${BOLD}  Step 4 of 8 — Generating secrets and config files${RESET}"
     generate_config
 
     echo
-    echo -e "${BOLD}  Step 5 of 7 — Registering appservice with Synapse${RESET}"
+    echo -e "${BOLD}  Step 5 of 8 — Registering appservice with Synapse${RESET}"
     register_appservice
     ensure_synapse_e2ee_flags
 
     echo
-    echo -e "${BOLD}  Step 6 of 7 — Starting services${RESET}"
+    echo -e "${BOLD}  Step 6 of 8 — Starting services${RESET}"
     update_caddy
     start_services
 
     echo
-    echo -e "${BOLD}  Step 7 of 7 — Smoke test${RESET}"
+    echo -e "${BOLD}  Step 7 of 8 — Trust bootstrap for encrypted rooms${RESET}"
+    bootstrap_hookshot_trust
+
+    echo
+    echo -e "${BOLD}  Step 8 of 8 — Smoke test${RESET}"
     test_hookshot
 
     print_summary
