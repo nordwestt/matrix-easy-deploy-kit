@@ -35,7 +35,7 @@ print_banner() {
   └───────────────────────────────────────────────────┘
 EOF
     echo -e "${RESET}"
-    echo -e "  This wizard will set up ${BOLD}Synapse${RESET} + ${BOLD}Caddy${RESET} on this machine (Element is optional)."
+    echo -e "  This wizard will set up ${BOLD}Synapse${RESET} + ${BOLD}MAS${RESET} + ${BOLD}Caddy${RESET} on this machine (Element is optional)."
     echo -e "  It should take about ${CYAN}5 minutes${RESET}.\n"
 }
 
@@ -183,6 +183,17 @@ gather_config() {
         ELEMENT_DOMAIN=""
     fi
 
+    # -- Authentication domain (MAS) ----------------------------------------
+    local _suggested_auth_domain
+    _suggested_auth_domain="auth.$(extract_base_domain "$MATRIX_DOMAIN")"
+    ask AUTH_DOMAIN \
+        "Authentication domain for OAuth/OIDC (MAS)" \
+        "$_suggested_auth_domain"
+    while [[ -z "$AUTH_DOMAIN" ]]; do
+        warn "Authentication domain is required."
+        ask AUTH_DOMAIN "Authentication domain for OAuth/OIDC (MAS)" "$_suggested_auth_domain"
+    done
+
     # -- LiveKit domain (for group video calls / Element Call) ----------------
     echo
     echo -e "  ${BOLD}Calls (TURN + LiveKit SFU)${RESET}"
@@ -210,6 +221,7 @@ gather_config() {
     else
         echo -e "  Element client  : ${CYAN}not installed${RESET}"
     fi
+    echo -e "  Auth service    : ${CYAN}${AUTH_DOMAIN}${RESET}"
     echo -e "  LiveKit (calls) : ${CYAN}${LIVEKIT_DOMAIN}${RESET}"
     echo
     echo -e "  ${YELLOW}DNS check:${RESET} make sure these A records point to this server before proceeding:"
@@ -217,6 +229,7 @@ gather_config() {
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
         echo -e "    ${CYAN}${ELEMENT_DOMAIN}${RESET}  →  <this server's IP>"
     fi
+    echo -e "    ${CYAN}${AUTH_DOMAIN}${RESET}  →  <this server's IP>"
     echo -e "    ${CYAN}${LIVEKIT_DOMAIN}${RESET}  →  <this server's IP>"
     echo
 
@@ -241,6 +254,9 @@ generate_config() {
     COTURN_SECRET="$(generate_secret)"
     LIVEKIT_KEY="matrix"
     LIVEKIT_SECRET="$(generate_secret)"
+    MAS_SHARED_SECRET="$(generate_secret)"
+    MAS_ENCRYPTION_SECRET="$(generate_secret)"
+    MAS_POSTGRES_PASSWORD="$(generate_secret)"
 
     # Detect the server's public IP address — required by coturn for NAT traversal.
     info "Detecting public IP address…"
@@ -272,6 +288,7 @@ generate_config() {
 MATRIX_DOMAIN=${MATRIX_DOMAIN}
 SERVER_NAME=${SERVER_NAME}
 ADMIN_USERNAME=${ADMIN_USERNAME}
+AUTH_DOMAIN=${AUTH_DOMAIN}
 
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 REGISTRATION_SHARED_SECRET=${REGISTRATION_SHARED_SECRET}
@@ -287,6 +304,9 @@ COTURN_SECRET=${COTURN_SECRET}
 LIVEKIT_DOMAIN=${LIVEKIT_DOMAIN}
 LIVEKIT_KEY=${LIVEKIT_KEY}
 LIVEKIT_SECRET=${LIVEKIT_SECRET}
+MAS_SHARED_SECRET=${MAS_SHARED_SECRET}
+MAS_ENCRYPTION_SECRET=${MAS_ENCRYPTION_SECRET}
+MAS_POSTGRES_PASSWORD=${MAS_POSTGRES_PASSWORD}
 
 SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
 SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
@@ -310,11 +330,15 @@ ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 FEDERATION_WHITELIST=${FEDERATION_WHITELIST}
 ALLOW_PUBLIC_ROOMS_FEDERATION=${ALLOW_PUBLIC_ROOMS_FEDERATION}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
+AUTH_DOMAIN=${AUTH_DOMAIN}
 SERVER_IP=${SERVER_IP}
 COTURN_SECRET=${COTURN_SECRET}
 LIVEKIT_DOMAIN=${LIVEKIT_DOMAIN}
 LIVEKIT_KEY=${LIVEKIT_KEY}
 LIVEKIT_SECRET=${LIVEKIT_SECRET}
+MAS_SHARED_SECRET=${MAS_SHARED_SECRET}
+MAS_ENCRYPTION_SECRET=${MAS_ENCRYPTION_SECRET}
+MAS_POSTGRES_PASSWORD=${MAS_POSTGRES_PASSWORD}
 SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
 SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
 SHARED_REDIS_URL=${SHARED_REDIS_URL}
@@ -341,6 +365,26 @@ EOF
         "${SCRIPT_DIR}/modules/core/synapse/homeserver.yaml" \
         "$vars_file"
     success "modules/core/synapse/homeserver.yaml written."
+
+    # -- MAS config + signing key ---------------------------------------------
+    local _mas_keys_dir="${SCRIPT_DIR}/modules/core/mas/keys"
+    local _mas_signing_key="${_mas_keys_dir}/mas-signing.key"
+    if [[ ! -f "${_mas_signing_key}" ]]; then
+        info "Generating MAS signing key…"
+        mkdir -p "${_mas_keys_dir}"
+        openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${_mas_signing_key}" >/dev/null 2>&1
+        chmod 600 "${_mas_signing_key}"
+        success "modules/core/mas/keys/mas-signing.key written."
+    else
+        info "MAS signing key already exists — keeping existing key."
+    fi
+
+    info "Rendering mas/config.yaml…"
+    render_template \
+        "${SCRIPT_DIR}/modules/core/mas/config.yaml.template" \
+        "${SCRIPT_DIR}/modules/core/mas/config.yaml" \
+        "$vars_file"
+    success "modules/core/mas/config.yaml written."
 
     # -- Element config.json (only when Element is being installed) -------------
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
@@ -408,7 +452,7 @@ start_services() {
         _element_label=" + Element"
         _element_profile=(--profile element)
     fi
-    info "Starting core Matrix services (Redis + PostgreSQL + Synapse${_element_label})…"
+    info "Starting core Matrix services (Redis + PostgreSQL + MAS + Synapse${_element_label})…"
     info "  Pulling images — this may take a few minutes on first run."
 
     # If a stale core_postgres_data volume exists (e.g. from an aborted previous run)
@@ -499,6 +543,7 @@ EOF
     if [[ "${INSTALL_ELEMENT}" == "true" ]]; then
         echo -e "  ${BOLD}Element client${RESET}     https://${ELEMENT_DOMAIN}/"
     fi
+    echo -e "  ${BOLD}Auth service${RESET}       https://${AUTH_DOMAIN}/"
     echo -e "  ${BOLD}LiveKit SFU${RESET}        https://${LIVEKIT_DOMAIN}/"
     echo -e "  ${BOLD}TURN server${RESET}        ${MATRIX_DOMAIN}:3478 (UDP/TCP) and :5349 (TLS)"
     echo -e "  ${BOLD}Synapse admin${RESET}      https://${MATRIX_DOMAIN}/_synapse/admin/v1/"
@@ -507,6 +552,7 @@ EOF
     echo
     echo -e "  ${BOLD}Useful commands${RESET}"
     echo -e "    See logs (Synapse):     ${CYAN}docker logs -f matrix_synapse${RESET}"
+    echo -e "    See logs (MAS):         ${CYAN}docker logs -f matrix_mas${RESET}"
     echo -e "    See logs (Redis):       ${CYAN}docker logs -f matrix_redis${RESET}"
     echo -e "    See logs (LiveKit):     ${CYAN}docker logs -f matrix_livekit${RESET}"
     echo -e "    See logs (coturn):      ${CYAN}docker logs -f matrix_coturn${RESET}"

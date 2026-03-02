@@ -8,8 +8,8 @@ IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
 info "Starting Caddy…"
 (cd "${SCRIPT_DIR}/caddy" && "${DOCKER_COMPOSE[@]}" up -d)
 
-info "Starting core services…"
-# Load .env if it exists so POSTGRES_PASSWORD and INSTALL_ELEMENT are available
+info "Starting core services (Synapse + MAS + Redis + PostgreSQL)…"
+# Load .env if it exists so compose env vars are available
 INSTALL_ELEMENT="true"  # default: assume Element is present if .env is missing
 if [[ -f "${SCRIPT_DIR}/.env" ]]; then
     set -o allexport

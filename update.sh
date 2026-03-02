@@ -18,6 +18,7 @@ info "Pulling updated images…"
 docker pull caddy:2-alpine
 docker pull postgres:16-alpine
 docker pull matrixdotorg/synapse:latest
+docker pull ghcr.io/element-hq/matrix-authentication-service:latest
 docker pull coturn/coturn:latest
 docker pull livekit/livekit-server:latest
 

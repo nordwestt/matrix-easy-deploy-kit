@@ -29,6 +29,25 @@ services:
       timeout: 5s
       retries: 5
 
+  mas_postgres:
+    image: postgres:16-alpine
+    container_name: matrix_mas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mas
+      POSTGRES_USER: mas
+      POSTGRES_PASSWORD: ${MAS_POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - mas_postgres_data:/var/lib/postgresql/data
+    networks:
+      - matrix_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: matrix_synapse
@@ -54,6 +73,21 @@ services:
       retries: 10
       start_period: 30s
 
+  mas:
+    image: ghcr.io/element-hq/matrix-authentication-service:latest
+    container_name: matrix_mas
+    restart: unless-stopped
+    command: ["server", "--config", "/data/config.yaml"]
+    volumes:
+      - ./mas/config.yaml:/data/config.yaml:ro
+      - ./mas/keys:/data/keys:ro
+    networks:
+      - matrix_internal
+      - caddy_net
+    depends_on:
+      mas_postgres:
+        condition: service_healthy
+
   element:
     image: vectorim/element-web:latest
     container_name: matrix_element
@@ -67,6 +101,7 @@ services:
 
 volumes:
   postgres_data:
+  mas_postgres_data:
   redis_data:
 
 networks:

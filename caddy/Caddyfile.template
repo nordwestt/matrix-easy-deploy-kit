@@ -45,6 +45,21 @@
     log
 }
 
+# Matrix Authentication Service (OAuth 2.0 / OIDC)
+{{AUTH_DOMAIN}} {
+    reverse_proxy matrix_mas:8080
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    encode gzip
+    log
+}
+
 # Element web client — served on its own domain
 {{ELEMENT_DOMAIN}} {
     reverse_proxy matrix_element:80

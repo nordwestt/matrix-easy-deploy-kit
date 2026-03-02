@@ -22,7 +22,7 @@ fi
 info "Stopping calls services (coturn + LiveKit)…"
 (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" down)
 
-info "Stopping core services…"
+info "Stopping core services (Synapse + MAS + Redis + PostgreSQL)…"
 (cd "${SCRIPT_DIR}/modules/core" && "${DOCKER_COMPOSE[@]}" down)
 
 info "Stopping Caddy…"

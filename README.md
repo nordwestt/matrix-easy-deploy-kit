@@ -13,9 +13,10 @@ After running `setup.sh` you'll have a working Matrix homeserver — the whole s
 | Service | What it does |
 |---------|-------------|
 | **[Synapse](https://github.com/element-hq/synapse)** | The Matrix homeserver. Handles federation, rooms, messages. |
+| **[Matrix Authentication Service (MAS)](https://github.com/element-hq/matrix-authentication-service)** | OAuth 2.0 / OIDC authentication and account management service used by Synapse. |
 | **[Element Web](https://github.com/element-hq/element-web)** | The web client. Served at your domain so anyone can log in from a browser. |
 | **[Caddy](https://caddyserver.com)** | Reverse proxy. Handles TLS automatically via Let's Encrypt. |
-| **PostgreSQL 16** | Database for Synapse. Considerably more robust than SQLite for anything beyond a toy. |
+| **PostgreSQL 16** | Database for Synapse and MAS (separate containers / databases). |
 | **Redis 7** | Shared cache/event store for modules (Hookshot E2EE now, others later). |
 | **[coturn](https://github.com/coturn/coturn)** | TURN server. Relays WebRTC traffic for 1:1 voice and video calls when both sides are behind NAT. |
 | **[LiveKit](https://livekit.io)** | SFU (Selective Forwarding Unit). Powers group video calls via Element Call and MatrixRTC. |
@@ -40,7 +41,7 @@ This project makes the first step easier. It doesn't abstract away the details �
 - **Docker Compose v2** — comes bundled with recent Docker Desktop and Docker Engine
 - `curl`, `openssl`, `python3` — standard on most distributions
 
-> **DNS first.** Make sure your DNS A record is live before running setup. Caddy needs to reach Let's Encrypt to issue your certificate, and that requires your domain to already be resolving.
+> **DNS first.** Make sure all domains you plan to use (Matrix, auth, LiveKit, and optionally Element) have A records pointed at this server before running setup. Caddy needs DNS to be live to issue certificates.
 
 ---
 
@@ -60,9 +61,10 @@ The wizard will ask you:
 4. Whether to allow public registration
 5. Whether to enable federation
 6. Whether to install Element Web, and on which domain
-7. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
+7. **Your auth domain (MAS)** — something like `auth.example.com` (defaults to `auth.<basedomain>`)
+8. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
 
-Everything else — database passwords, signing keys, TURN secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
+Everything else — database passwords, signing keys, TURN secrets, MAS encryption/shared secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
 
 ---
 
@@ -83,11 +85,16 @@ matrix-easy-deploy/
 │
 ├── modules/
 │   ├── core/                     # The core Matrix stack
-│   │   ├── docker-compose.yml    # Synapse + Element + PostgreSQL + shared Redis
+│   │   ├── docker-compose.yml    # Synapse + MAS + Element + PostgreSQL + shared Redis
 │   │   ├── synapse/
 │   │   │   ├── homeserver.yaml.template
 │   │   │   ├── homeserver.yaml   # Generated during setup
 │   │   │   └── log.config
+│   │   ├── mas/
+│   │   │   ├── config.yaml.template
+│   │   │   ├── config.yaml       # Generated during setup
+│   │   │   └── keys/
+│   │   │       └── mas-signing.key  # Generated during setup (keep private)
 │   │   └── element/
 │   │       ├── config.json.template
 │   │       └── config.json       # Generated during setup
@@ -135,9 +142,11 @@ By default, modules should use `SHARED_REDIS_URL` from `.env` and keep separatio
 **View logs**
 ```bash
 docker logs -f matrix_synapse
+docker logs -f matrix_mas
 docker logs -f caddy
 docker logs -f matrix_element
 docker logs -f matrix_postgres
+docker logs -f matrix_mas_postgres
 docker logs -f matrix_redis
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
@@ -267,6 +276,17 @@ curl -I https://livekit.example.com
 ```
 Also make sure port range 50000–50200/UDP is open in your firewall.
 
+**OAuth / SSO login doesn’t appear in clients**
+
+Check MAS and Synapse wiring first:
+```bash
+docker logs matrix_mas
+docker logs matrix_synapse
+curl -fsSL https://auth.example.com/.well-known/openid-configuration | head
+curl -fsSL https://matrix.example.com/.well-known/matrix/client
+```
+Confirm that `matrix_authentication_service` is enabled in `modules/core/synapse/homeserver.yaml` and that your auth domain resolves publicly.
+
 **Synapse takes a long time to start**
 
 On first boot, Synapse runs database migrations. If your VPS is modest, give it a minute or two. The setup wizard polls every 5 seconds and will wait up to 3 minutes.
@@ -294,9 +314,10 @@ docker inspect matrix_postgres | grep -A 5 Health
 
 ## Security notes
 
-- Your `.env` file contains database credentials, TURN secrets, LiveKit API keys, and other internal secrets. It's in `.gitignore` — keep it that way.
+- Your `.env` file contains database credentials, TURN secrets, MAS shared/encryption secrets, LiveKit API keys, and other internal secrets. It's in `.gitignore` — keep it that way.
 - Public registration is off by default. Think carefully before turning it on; an open Matrix server is a spam target.
 - Federation is on by default. If you want a private, islands-only server, disable it during setup.
+- MAS signing keys are generated in `modules/core/mas/keys/`. Protect and back them up; rotating them invalidates issued tokens.
 - The Synapse admin API (`/_synapse/admin/`) is accessible via Caddy. It requires a valid admin access token to use — the setup just exposes the routing; auth is Synapse's business.
 - coturn runs with `network_mode: host` so it can bind UDP relay ports directly. Ensure your firewall allows:
   - TCP/UDP 3478 (TURN)

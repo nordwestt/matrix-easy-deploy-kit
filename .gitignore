@@ -13,6 +13,7 @@ modules/core/synapse_data/*
 
 # Generated Synapse signing key
 *.signing.key
+modules/core/mas/keys/*
 
 # OS / editor junk
 .DS_Store
