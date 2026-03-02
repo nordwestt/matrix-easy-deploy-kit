@@ -24,6 +24,15 @@ logging:
 #   openssl genpkey -out passkey.pem -outform PEM -algorithm RSA -pkeyopt rsa_keygen_bits:4096
 passFile: /data/passkey.pem
 
+# Cache backend (required for end-to-bridge encryption support)
+cache:
+  redisUri: redis://matrix-hookshot-redis:6379
+
+# End-to-bridge encryption (E2EE) support
+encryption:
+  # Must persist across restarts
+  storagePath: /data/cryptostore
+
 listeners:
   # Webhook ingress — receives events from GitHub, GitLab, generic webhooks, etc.
   # Exposed to the internet via Caddy at https://{{HOOKSHOT_DOMAIN}}

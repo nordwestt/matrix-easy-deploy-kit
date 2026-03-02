@@ -14,6 +14,7 @@ source "${SCRIPT_DIR}/lib.sh"
 DEPLOY_ENV="${PROJECT_ROOT}/.env"
 SYNAPSE_DATA_REG="${PROJECT_ROOT}/modules/core/synapse_data/hookshot-registration.yml"
 LOCAL_REG="${PROJECT_ROOT}/modules/hookshot/hookshot/registration.yml"
+HOOKSHOT_CONFIG="${PROJECT_ROOT}/modules/hookshot/hookshot/config.yml"
 HOMESERVER_YAML="${PROJECT_ROOT}/modules/core/synapse/homeserver.yaml"
 
 PASS=0
@@ -102,6 +103,35 @@ if [[ -f "$HOMESERVER_YAML" ]]; then
         check_fail "hookshot-registration.yml is NOT in homeserver.yaml app_service_config_files"
         check_warn "Re-run: bash setup.sh --module hookshot"
     fi
+
+    for f in msc3202_device_masquerading msc3202_transaction_extensions msc2409_to_device_messages_enabled; do
+        if grep -Eq "^\s*${f}:\s*true" "$HOMESERVER_YAML"; then
+            check_pass "homeserver.yaml: ${f}=true"
+        else
+            check_fail "homeserver.yaml: ${f} is missing or not true"
+            check_warn "Hookshot encrypted room support requires this flag"
+        fi
+    done
+fi
+
+# ---------------------------------------------------------------------------
+section "4b. Hookshot encryption/cache config"
+# ---------------------------------------------------------------------------
+
+if [[ -f "$HOOKSHOT_CONFIG" ]]; then
+    if grep -Eq '^\s*cache:\s*$' "$HOOKSHOT_CONFIG" && grep -Eq '^\s*redisUri:\s*redis://matrix-hookshot-redis:6379\s*$' "$HOOKSHOT_CONFIG"; then
+        check_pass "config.yml: cache.redisUri points to matrix-hookshot-redis"
+    else
+        check_fail "config.yml: cache.redisUri for Hookshot encryption is missing"
+    fi
+
+    if grep -Eq '^\s*encryption:\s*$' "$HOOKSHOT_CONFIG" && grep -Eq '^\s*storagePath:\s*/data/cryptostore\s*$' "$HOOKSHOT_CONFIG"; then
+        check_pass "config.yml: encryption.storagePath is set to /data/cryptostore"
+    else
+        check_fail "config.yml: encryption.storagePath is missing"
+    fi
+else
+    check_fail "modules/hookshot/hookshot/config.yml not found"
 fi
 
 # ---------------------------------------------------------------------------
@@ -260,5 +290,5 @@ else
     echo -e "  ${GREEN}All checks passed. Hookshot should be wired up correctly.${RESET}"
     echo
     echo -e "  To test end-to-end: create a new room, invite ${CYAN}@hookshot:${SERVER_NAME}${RESET},"
-    echo -e "  wait for it to join, then send: ${CYAN}!hookshot setup webhook${RESET}"
+    echo -e "  wait for it to join, then send: ${CYAN}!hookshot webhook test${RESET}"
 fi
