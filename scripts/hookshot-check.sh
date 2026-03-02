@@ -48,6 +48,12 @@ for var in MATRIX_DOMAIN SERVER_NAME HOOKSHOT_DOMAIN HOOKSHOT_AS_TOKEN HOOKSHOT_
     fi
 done
 
+SHARED_REDIS_HOST="${SHARED_REDIS_HOST:-matrix_redis}"
+SHARED_REDIS_PORT="${SHARED_REDIS_PORT:-6379}"
+SHARED_REDIS_URL="${SHARED_REDIS_URL:-redis://${SHARED_REDIS_HOST}:${SHARED_REDIS_PORT}}"
+HOOKSHOT_REDIS_DB="${HOOKSHOT_REDIS_DB:-1}"
+EXPECTED_HOOKSHOT_REDIS_URI="${HOOKSHOT_REDIS_URI:-${SHARED_REDIS_URL}/${HOOKSHOT_REDIS_DB}}"
+
 # ---------------------------------------------------------------------------
 section "2. homeserver.yaml server_name vs .env SERVER_NAME"
 # ---------------------------------------------------------------------------
@@ -119,10 +125,10 @@ section "4b. Hookshot encryption/cache config"
 # ---------------------------------------------------------------------------
 
 if [[ -f "$HOOKSHOT_CONFIG" ]]; then
-    if grep -Eq '^\s*cache:\s*$' "$HOOKSHOT_CONFIG" && grep -Eq '^\s*redisUri:\s*redis://matrix-hookshot-redis:6379\s*$' "$HOOKSHOT_CONFIG"; then
-        check_pass "config.yml: cache.redisUri points to matrix-hookshot-redis"
+    if grep -Eq '^\s*cache:\s*$' "$HOOKSHOT_CONFIG" && grep -Fq "redisUri: ${EXPECTED_HOOKSHOT_REDIS_URI}" "$HOOKSHOT_CONFIG"; then
+        check_pass "config.yml: cache.redisUri matches ${EXPECTED_HOOKSHOT_REDIS_URI}"
     else
-        check_fail "config.yml: cache.redisUri for Hookshot encryption is missing"
+        check_fail "config.yml: cache.redisUri does not match ${EXPECTED_HOOKSHOT_REDIS_URI}"
     fi
 
     if grep -Eq '^\s*encryption:\s*$' "$HOOKSHOT_CONFIG" && grep -Eq '^\s*storagePath:\s*/data/cryptostore\s*$' "$HOOKSHOT_CONFIG"; then
@@ -138,7 +144,7 @@ fi
 section "5. Docker containers running"
 # ---------------------------------------------------------------------------
 
-for container in matrix_synapse matrix-hookshot; do
+for container in matrix_synapse matrix-hookshot matrix_redis; do
     status="$(docker inspect --format='{{.State.Status}}' "$container" 2>/dev/null || echo 'missing')"
     if [[ "$status" == "running" ]]; then
         check_pass "${container} is running"

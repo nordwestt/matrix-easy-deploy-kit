@@ -3,7 +3,7 @@
 #  matrix-easy-deploy  —  setup.sh
 #  Interactive setup wizard for a self-hosted Matrix homeserver.
 #
-#  Installs: Caddy (reverse proxy) + Synapse (homeserver) + Element (web client) + Coturn (TURN server) + LiveKit (SFU)
+#  Installs: Caddy (reverse proxy) + Synapse (homeserver) + Element (web client) + PostgreSQL + Redis + Coturn (TURN server) + LiveKit (SFU)
 #  All services run via Docker Compose.
 #
 #  Usage:  bash setup.sh
@@ -257,6 +257,11 @@ generate_config() {
 
     success "Secrets generated."
 
+    # Shared Redis defaults (used by modules; can be overridden by environment)
+    SHARED_REDIS_HOST="${SHARED_REDIS_HOST:-matrix_redis}"
+    SHARED_REDIS_PORT="${SHARED_REDIS_PORT:-6379}"
+    SHARED_REDIS_URL="${SHARED_REDIS_URL:-redis://${SHARED_REDIS_HOST}:${SHARED_REDIS_PORT}}"
+
     # -- Write .env -----------------------------------------------------------
     info "Writing ${DEPLOY_ENV}…"
     cat > "$DEPLOY_ENV" <<EOF
@@ -282,6 +287,10 @@ COTURN_SECRET=${COTURN_SECRET}
 LIVEKIT_DOMAIN=${LIVEKIT_DOMAIN}
 LIVEKIT_KEY=${LIVEKIT_KEY}
 LIVEKIT_SECRET=${LIVEKIT_SECRET}
+
+SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
+SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
+SHARED_REDIS_URL=${SHARED_REDIS_URL}
 EOF
     chmod 600 "$DEPLOY_ENV"
     success ".env written."
@@ -306,6 +315,9 @@ COTURN_SECRET=${COTURN_SECRET}
 LIVEKIT_DOMAIN=${LIVEKIT_DOMAIN}
 LIVEKIT_KEY=${LIVEKIT_KEY}
 LIVEKIT_SECRET=${LIVEKIT_SECRET}
+SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
+SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
+SHARED_REDIS_URL=${SHARED_REDIS_URL}
 EOF
 
     # -- Caddyfile (choose template based on whether Element is being installed) --
@@ -396,7 +408,7 @@ start_services() {
         _element_label=" + Element"
         _element_profile=(--profile element)
     fi
-    info "Starting core Matrix services (PostgreSQL + Synapse${_element_label})…"
+    info "Starting core Matrix services (Redis + PostgreSQL + Synapse${_element_label})…"
     info "  Pulling images — this may take a few minutes on first run."
 
     # If a stale core_postgres_data volume exists (e.g. from an aborted previous run)
@@ -495,6 +507,7 @@ EOF
     echo
     echo -e "  ${BOLD}Useful commands${RESET}"
     echo -e "    See logs (Synapse):     ${CYAN}docker logs -f matrix_synapse${RESET}"
+    echo -e "    See logs (Redis):       ${CYAN}docker logs -f matrix_redis${RESET}"
     echo -e "    See logs (LiveKit):     ${CYAN}docker logs -f matrix_livekit${RESET}"
     echo -e "    See logs (coturn):      ${CYAN}docker logs -f matrix_coturn${RESET}"
     echo -e "    See logs (Caddy):       ${CYAN}docker logs -f caddy${RESET}"

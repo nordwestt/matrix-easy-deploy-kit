@@ -26,7 +26,7 @@ passFile: /data/passkey.pem
 
 # Cache backend (required for end-to-bridge encryption support)
 cache:
-  redisUri: redis://matrix-hookshot-redis:6379
+  redisUri: {{HOOKSHOT_REDIS_URI}}
 
 # End-to-bridge encryption (E2EE) support
 encryption:

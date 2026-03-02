@@ -61,6 +61,14 @@ load_env() {
         fi
     done
 
+    # Shared Redis defaults (provided by root setup.sh; fallback for older .env files)
+    SHARED_REDIS_HOST="${SHARED_REDIS_HOST:-matrix_redis}"
+    SHARED_REDIS_PORT="${SHARED_REDIS_PORT:-6379}"
+    SHARED_REDIS_URL="${SHARED_REDIS_URL:-redis://${SHARED_REDIS_HOST}:${SHARED_REDIS_PORT}}"
+    HOOKSHOT_REDIS_DB="${HOOKSHOT_REDIS_DB:-1}"
+    HOOKSHOT_REDIS_URI="${HOOKSHOT_REDIS_URI:-${SHARED_REDIS_URL}/${HOOKSHOT_REDIS_DB}}"
+    export SHARED_REDIS_HOST SHARED_REDIS_PORT SHARED_REDIS_URL HOOKSHOT_REDIS_DB HOOKSHOT_REDIS_URI
+
     success "Loaded: MATRIX_DOMAIN=${MATRIX_DOMAIN}, SERVER_NAME=${SERVER_NAME}"
 }
 
@@ -177,7 +185,22 @@ generate_config() {
 HOOKSHOT_DOMAIN=${HOOKSHOT_DOMAIN}
 HOOKSHOT_AS_TOKEN=${HOOKSHOT_AS_TOKEN}
 HOOKSHOT_HS_TOKEN=${HOOKSHOT_HS_TOKEN}
+HOOKSHOT_REDIS_URI=${HOOKSHOT_REDIS_URI}
 EOF
+
+    if ! grep -q "^HOOKSHOT_REDIS_URI=" "$DEPLOY_ENV"; then
+        info "Adding HOOKSHOT_REDIS_URI to .env…"
+        echo "HOOKSHOT_REDIS_URI=${HOOKSHOT_REDIS_URI}" >> "$DEPLOY_ENV"
+    fi
+    if ! grep -q "^SHARED_REDIS_HOST=" "$DEPLOY_ENV"; then
+        echo "SHARED_REDIS_HOST=${SHARED_REDIS_HOST}" >> "$DEPLOY_ENV"
+    fi
+    if ! grep -q "^SHARED_REDIS_PORT=" "$DEPLOY_ENV"; then
+        echo "SHARED_REDIS_PORT=${SHARED_REDIS_PORT}" >> "$DEPLOY_ENV"
+    fi
+    if ! grep -q "^SHARED_REDIS_URL=" "$DEPLOY_ENV"; then
+        echo "SHARED_REDIS_URL=${SHARED_REDIS_URL}" >> "$DEPLOY_ENV"
+    fi
         success ".env updated."
     else
         info "Hookshot variables already present in .env — skipping."
