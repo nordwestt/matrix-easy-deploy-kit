@@ -153,8 +153,14 @@ section "7. Network connectivity — Hookshot → Synapse (client-server API :80
 
 if docker inspect matrix-hookshot &>/dev/null; then
     result="$(docker exec matrix-hookshot \
-        wget -qO- --timeout=5 http://matrix_synapse:8008/_matrix/client/versions 2>&1 \
-        | head -c 80 || echo 'fail')"
+        node -e "
+const h = require('http');
+h.get('http://matrix_synapse:8008/_matrix/client/versions', r => {
+    let d = '';
+    r.on('data', c => d += c);
+    r.on('end', () => process.stdout.write(d.slice(0,80)));
+}).on('error', e => { process.stdout.write('fail: ' + e.message); process.exit(1); });
+" 2>&1 || echo 'fail')"
 
     if echo "$result" | grep -q '"versions"'; then
         check_pass "Hookshot can reach Synapse :8008 (got Matrix versions response)"
