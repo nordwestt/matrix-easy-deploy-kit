@@ -16,6 +16,7 @@ After running `setup.sh` you'll have a working Matrix homeserver — the whole s
 | **[Element Web](https://github.com/element-hq/element-web)** | The web client. Served at your domain so anyone can log in from a browser. |
 | **[Caddy](https://caddyserver.com)** | Reverse proxy. Handles TLS automatically via Let's Encrypt. |
 | **PostgreSQL 16** | Database for Synapse. Considerably more robust than SQLite for anything beyond a toy. |
+| **Redis 7** | Shared cache/event store for modules (Hookshot E2EE now, others later). |
 | **[coturn](https://github.com/coturn/coturn)** | TURN server. Relays WebRTC traffic for 1:1 voice and video calls when both sides are behind NAT. |
 | **[LiveKit](https://livekit.io)** | SFU (Selective Forwarding Unit). Powers group video calls via Element Call and MatrixRTC. |
 
@@ -82,7 +83,7 @@ matrix-easy-deploy/
 │
 ├── modules/
 │   ├── core/                     # The core Matrix stack
-│   │   ├── docker-compose.yml    # Synapse + Element + PostgreSQL
+│   │   ├── docker-compose.yml    # Synapse + Element + PostgreSQL + shared Redis
 │   │   ├── synapse/
 │   │   │   ├── homeserver.yaml.template
 │   │   │   ├── homeserver.yaml   # Generated during setup
@@ -90,14 +91,23 @@ matrix-easy-deploy/
 │   │   └── element/
 │   │       ├── config.json.template
 │   │       └── config.json       # Generated during setup
-│   └── calls/                    # Voice and video calling stack
-│       ├── docker-compose.yml    # coturn + LiveKit
-│       ├── coturn/
-│       │   ├── turnserver.conf.template
-│       │   └── turnserver.conf   # Generated during setup
-│       └── livekit/
-│           ├── livekit.yaml.template
-│           └── livekit.yaml      # Generated during setup
+│   ├── calls/                    # Voice and video calling stack
+│   │   ├── docker-compose.yml    # coturn + LiveKit
+│   │   ├── coturn/
+│   │   │   ├── turnserver.conf.template
+│   │   │   └── turnserver.conf   # Generated during setup
+│   │   └── livekit/
+│   │       ├── livekit.yaml.template
+│   │       └── livekit.yaml      # Generated during setup
+│   └── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
+│       ├── docker-compose.yml    # Hookshot service definition
+│       ├── setup.sh              # Module setup wizard
+│       └── hookshot/
+│           ├── config.yml.template
+│           ├── config.yml        # Generated during module setup
+│           ├── registration.yml.template
+│           ├── registration.yml  # Generated during module setup
+│           └── passkey.pem       # Generated during module setup (keep private)
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -105,6 +115,18 @@ matrix-easy-deploy/
 ```
 
 Modules live in `modules/`. The core stack is itself a module — bridges, bots, and other additions will each have their own directory under `modules/` with their own `docker-compose.yml` and `setup.sh`.
+
+Redis is provisioned once in `modules/core` and exposed as a shared internal dependency (`matrix_redis`) so optional modules can reuse it without spinning up duplicate Redis containers.
+
+By default, modules should use `SHARED_REDIS_URL` from `.env` and keep separation via Redis DB indexes and/or key prefixes.
+
+### Redis conventions (tiny guide)
+
+- **Single shared Redis**: use the core Redis instance (`matrix_redis`) unless a module has strict isolation needs.
+- **Per-module DB index**: assign each module its own DB index (e.g. Hookshot uses `/1`, future modules can use `/2`, `/3`, ...).
+- **Key prefixing**: if a module shares a DB, prefix keys with `<module>:` to avoid collisions.
+- **Env-first wiring**: modules should read `SHARED_REDIS_URL` and derive module-specific URLs in their setup script.
+- **Escalation rule**: split to dedicated Redis only when a module needs separate durability/SLO or creates noisy-neighbor risk.
 
 ---
 
@@ -116,8 +138,10 @@ docker logs -f matrix_synapse
 docker logs -f caddy
 docker logs -f matrix_element
 docker logs -f matrix_postgres
+docker logs -f matrix_redis
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
+docker logs -f matrix-hookshot  # if hookshot module is installed
 ```
 
 **Stop all services** (data stays intact in Docker volumes)
@@ -164,6 +188,50 @@ bash setup.sh --module <module-name>
 ```
 
 This calls the module's own `setup.sh`, which can ask its own questions, pull its own images, and register itself with the rest of the stack without touching the core configuration.
+
+### Available modules
+
+#### `hookshot` — Bridges, webhooks, and feeds
+
+[Hookshot](https://matrix-org.github.io/matrix-hookshot/latest/hookshot.html) connects your Matrix rooms to external services. Out of the box it enables:
+
+| Feature | How to use |
+|---------|------------|
+| **Generic webhooks** | Invite `@hookshot` to a room, run `!hookshot webhook <name>` to get an inbound URL |
+| **RSS/Atom feeds** | `!hookshot feed <url>` — posts new items to the room |
+| **Encrypted rooms (E2EE)** | Supported out of the box (Hookshot crypto store + Redis cache + Synapse MSC3202/MSC2409 flags) |
+| **GitHub** (optional) | Configure `github:` block in `config.yml`, re-run or restart |
+| **GitLab** (optional) | Configure `gitlab:` block in `config.yml` |
+| **Jira** (optional) | Configure `jira:` block in `config.yml` |
+
+```bash
+bash setup.sh --module hookshot
+```
+
+The wizard will ask for a webhook domain (e.g. `hookshot.example.com`), generate the appservice tokens and RSA passkey, register Hookshot with Synapse, add a Caddy site block, and start the container automatically.
+
+**DNS required:** add an A record for your hookshot domain before running the wizard.
+
+**After setup:**
+```bash
+# View logs
+docker logs -f matrix-hookshot
+
+# Enable GitHub / GitLab / Jira — edit config.yml then:
+docker restart matrix-hookshot
+```
+
+If you installed Hookshot before encrypted-room support was added, run `bash setup.sh --module hookshot` once more to apply the new Redis and Synapse compatibility settings.
+
+**Diagnose wiring issues** (checks registration, tokens, network, and does a live Synapse→Hookshot ping):
+```bash
+bash scripts/hookshot-check.sh
+```
+
+**Command caveats (common gotchas):**
+- Room commands (`!hookshot ...`) require an unencrypted room unless Hookshot encryption support is configured.
+- Give `@hookshot` enough power in the room (typically Moderator / PL50) so it can write room state.
+- In DMs, `help` may look sparse if you have only webhooks/feeds enabled and no GitHub/GitLab/Jira auth features configured.
 
 More modules coming. Watch this space.
 

@@ -1,4 +1,15 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: matrix_redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - matrix_internal
+      - caddy_net
+
   postgres:
     image: postgres:16-alpine
     container_name: matrix_postgres
@@ -56,6 +67,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   matrix_internal:

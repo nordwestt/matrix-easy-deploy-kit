@@ -25,6 +25,10 @@ if [[ "${INSTALL_ELEMENT:-true}" == "true" ]]; then
     docker pull vectorim/element-web:latest
 fi
 
+if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/config.yml" ]]; then
+    docker pull halfshot/matrix-hookshot:latest
+fi
+
 info "Restarting services…"
 bash "${SCRIPT_DIR}/start.sh"
 
