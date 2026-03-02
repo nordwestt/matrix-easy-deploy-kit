@@ -206,6 +206,11 @@ docker logs -f matrix-hookshot
 docker restart matrix-hookshot
 ```
 
+**Diagnose wiring issues** (checks registration, tokens, network, and does a live Synapse→Hookshot ping):
+```bash
+bash scripts/hookshot-check.sh
+```
+
 More modules coming. Watch this space.
 
 ---
