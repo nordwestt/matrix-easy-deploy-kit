@@ -1,0 +1,361 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  matrix-easy-deploy  —  modules/hookshot/setup.sh
+#  Sets up the Hookshot bridge as an appservice on the existing Synapse server.
+#
+#  Run via:  bash setup.sh --module hookshot
+#
+#  What this does:
+#    1. Reads the existing .env to discover your homeserver details.
+#    2. Asks for a webhook ingress domain (e.g. hookshot.example.com).
+#    3. Generates the appservice tokens and RSA passkey.
+#    4. Renders config.yml and registration.yml from templates.
+#    5. Registers the appservice with Synapse (via homeserver.yaml).
+#    6. Adds a Caddy reverse-proxy block for the webhook domain.
+#    7. Starts Hookshot and restarts Synapse so the registration takes effect.
+# =============================================================================
+
+set -euo pipefail
+IFS=$'\n\t'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+# shellcheck source=../../scripts/lib.sh
+source "${PROJECT_ROOT}/scripts/lib.sh"
+
+IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
+
+DEPLOY_ENV="${PROJECT_ROOT}/.env"
+MODULE_DIR="${SCRIPT_DIR}"
+HOOKSHOT_DATA_DIR="${MODULE_DIR}/hookshot"
+CORE_SYNAPSE_DATA_DIR="${PROJECT_ROOT}/modules/core/synapse_data"
+HOMESERVER_YAML="${PROJECT_ROOT}/modules/core/synapse/homeserver.yaml"
+CADDYFILE="${PROJECT_ROOT}/caddy/Caddyfile"
+
+# =============================================================================
+# Step 1 — Load existing deployment environment
+# =============================================================================
+load_env() {
+    if [[ ! -f "$DEPLOY_ENV" ]]; then
+        die "No .env file found at ${DEPLOY_ENV}. Please run setup.sh first."
+    fi
+
+    info "Loading existing deployment configuration from .env…"
+    # Export each non-comment, non-empty line
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" == \#* ]] && continue
+        export "${key}=${value}"
+    done < "$DEPLOY_ENV"
+
+    # Validate expected vars are present
+    local required_vars=(MATRIX_DOMAIN SERVER_NAME)
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            die "Required variable '${var}' not found in .env. Please re-run setup.sh."
+        fi
+    done
+
+    success "Loaded: MATRIX_DOMAIN=${MATRIX_DOMAIN}, SERVER_NAME=${SERVER_NAME}"
+}
+
+# =============================================================================
+# Step 2 — Gather Hookshot-specific config
+# =============================================================================
+gather_config() {
+    echo
+    echo -e "${BOLD}  Hookshot Module Configuration${RESET}"
+    echo -e "  ─────────────────────────────────────────────────────"
+    echo -e "  Hookshot bridges your Matrix rooms to GitHub, GitLab, generic webhooks, RSS feeds, and more."
+    echo -e "  Press Enter to accept a ${CYAN}[default]${RESET}.\n"
+
+    local _suggested_hookshot_domain
+    _suggested_hookshot_domain="hookshot.$(extract_base_domain "$MATRIX_DOMAIN")"
+    ask HOOKSHOT_DOMAIN \
+        "Hookshot webhook domain  (e.g. hookshot.example.com)" \
+        "$_suggested_hookshot_domain"
+    while [[ -z "$HOOKSHOT_DOMAIN" ]]; do
+        warn "Hookshot domain is required."
+        ask HOOKSHOT_DOMAIN "Hookshot webhook domain" "$_suggested_hookshot_domain"
+    done
+
+    echo
+    echo -e "${BOLD}  Configuration summary${RESET}"
+    echo -e "  ─────────────────────────────────────────────────────"
+    echo -e "  Homeserver      : ${CYAN}${MATRIX_DOMAIN}${RESET}"
+    echo -e "  Server name     : ${CYAN}${SERVER_NAME}${RESET}"
+    echo -e "  Hookshot domain : ${CYAN}${HOOKSHOT_DOMAIN}${RESET}"
+    echo
+    echo -e "  ${YELLOW}DNS check:${RESET} make sure this A record points to this server:"
+    echo -e "    ${CYAN}${HOOKSHOT_DOMAIN}${RESET}  →  <this server's IP>"
+    echo
+
+    ask_yn _confirm "Does this look right? Proceed?" "y"
+    if [[ "$_confirm" != "y" ]]; then
+        warn "Restarting configuration…"
+        echo
+        gather_config
+    fi
+}
+
+# =============================================================================
+# Step 3 — Generate secrets and render config files
+# =============================================================================
+generate_config() {
+    info "Generating appservice tokens…"
+    HOOKSHOT_AS_TOKEN="$(generate_secret)"
+    HOOKSHOT_HS_TOKEN="$(generate_secret)"
+    success "Tokens generated."
+
+    # Generate RSA passkey for encrypting stored OAuth/API tokens
+    local passkey_path="${HOOKSHOT_DATA_DIR}/passkey.pem"
+    if [[ -f "$passkey_path" ]]; then
+        info "Passkey already exists at ${passkey_path} — skipping generation."
+    else
+        info "Generating RSA passkey…"
+        openssl genpkey \
+            -out "$passkey_path" \
+            -outform PEM \
+            -algorithm RSA \
+            -pkeyopt rsa_keygen_bits:4096 \
+            2>/dev/null
+        chmod 600 "$passkey_path"
+        success "Passkey written to ${passkey_path}."
+    fi
+
+    # Append Hookshot vars to the project .env
+    if ! grep -q "^HOOKSHOT_DOMAIN=" "$DEPLOY_ENV"; then
+        info "Appending Hookshot variables to .env…"
+        cat >> "$DEPLOY_ENV" <<EOF
+
+# Hookshot module — added by modules/hookshot/setup.sh
+HOOKSHOT_DOMAIN=${HOOKSHOT_DOMAIN}
+HOOKSHOT_AS_TOKEN=${HOOKSHOT_AS_TOKEN}
+HOOKSHOT_HS_TOKEN=${HOOKSHOT_HS_TOKEN}
+EOF
+        success ".env updated."
+    else
+        info "Hookshot variables already present in .env — skipping."
+    fi
+
+    # Build substitution map
+    local vars_file
+    vars_file="$(mktemp)"
+    trap 'rm -f "$vars_file"' EXIT
+
+    cat > "$vars_file" <<EOF
+SERVER_NAME=${SERVER_NAME}
+MATRIX_DOMAIN=${MATRIX_DOMAIN}
+HOOKSHOT_DOMAIN=${HOOKSHOT_DOMAIN}
+HOOKSHOT_AS_TOKEN=${HOOKSHOT_AS_TOKEN}
+HOOKSHOT_HS_TOKEN=${HOOKSHOT_HS_TOKEN}
+EOF
+
+    # Render config.yml
+    info "Rendering hookshot/config.yml…"
+    render_template \
+        "${HOOKSHOT_DATA_DIR}/config.yml.template" \
+        "${HOOKSHOT_DATA_DIR}/config.yml" \
+        "$vars_file"
+    success "hookshot/config.yml written."
+
+    # Render registration.yml
+    info "Rendering hookshot/registration.yml…"
+    render_template \
+        "${HOOKSHOT_DATA_DIR}/registration.yml.template" \
+        "${HOOKSHOT_DATA_DIR}/registration.yml" \
+        "$vars_file"
+    success "hookshot/registration.yml written."
+}
+
+# =============================================================================
+# Step 4 — Register appservice with Synapse
+# =============================================================================
+register_appservice() {
+    local reg_src="${HOOKSHOT_DATA_DIR}/registration.yml"
+    local reg_dest="${CORE_SYNAPSE_DATA_DIR}/hookshot-registration.yml"
+
+    info "Copying registration.yml to Synapse data directory…"
+    cp "$reg_src" "$reg_dest"
+    success "Registration file copied to ${reg_dest}."
+
+    # The file is mounted into Synapse as /data/hookshot-registration.yml.
+    # We need to tell Synapse to load it via app_service_config_files.
+    local reg_container_path="/data/hookshot-registration.yml"
+
+    if [[ ! -f "$HOMESERVER_YAML" ]]; then
+        die "homeserver.yaml not found at ${HOMESERVER_YAML}. Please run setup.sh first."
+    fi
+
+    if grep -qF "$reg_container_path" "$HOMESERVER_YAML"; then
+        info "Hookshot already registered in homeserver.yaml — skipping."
+    else
+        info "Registering Hookshot appservice in homeserver.yaml…"
+        python3 - "$HOMESERVER_YAML" "$reg_container_path" <<'PYEOF'
+import sys, re
+
+filepath = sys.argv[1]
+reg_path = sys.argv[2]
+
+with open(filepath, 'r') as f:
+    content = f.read()
+
+if 'app_service_config_files' in content:
+    # Append our registration to the existing list
+    content = re.sub(
+        r'(app_service_config_files:(?:\s*\n\s+-[^\n]*)*)',
+        lambda m: m.group(0) + f'\n  - {reg_path}',
+        content,
+        count=1
+    )
+else:
+    content += f'\n# Application services (bridges)\napp_service_config_files:\n  - {reg_path}\n'
+
+with open(filepath, 'w') as f:
+    f.write(content)
+
+print(f"  Added {reg_path} to app_service_config_files.")
+PYEOF
+        success "homeserver.yaml updated."
+    fi
+}
+
+# =============================================================================
+# Step 5 — Add Caddy reverse-proxy block for the webhook domain
+# =============================================================================
+update_caddy() {
+    if grep -qF "$HOOKSHOT_DOMAIN" "$CADDYFILE"; then
+        info "Caddy block for ${HOOKSHOT_DOMAIN} already exists — skipping."
+        return
+    fi
+
+    info "Appending Hookshot Caddy block to ${CADDYFILE}…"
+    cat >> "$CADDYFILE" <<EOF
+
+# Hookshot bridge — webhook ingress for GitHub, GitLab, generic hooks, etc.
+${HOOKSHOT_DOMAIN} {
+    reverse_proxy matrix_hookshot:9000
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    log
+}
+EOF
+    success "Caddy block added."
+
+    # Reload Caddy to pick up the new site block (this also triggers cert issuance)
+    info "Reloading Caddy…"
+    if docker ps --format '{{.Names}}' | grep -q '^caddy$'; then
+        docker exec caddy caddy reload --config /etc/caddy/Caddyfile 2>&1 | sed 's/^/    /'
+        success "Caddy reloaded."
+    else
+        warn "Caddy container is not running. The new site block will be active on next start."
+    fi
+}
+
+# =============================================================================
+# Step 6 — Start Hookshot and restart Synapse
+# =============================================================================
+start_services() {
+    echo
+    info "Starting Hookshot…"
+    (cd "$MODULE_DIR" && "${DOCKER_COMPOSE[@]}" up -d --pull always)
+    success "Hookshot started."
+
+    echo
+    info "Restarting Synapse to load the new appservice registration…"
+    if docker ps --format '{{.Names}}' | grep -q '^matrix_synapse$'; then
+        docker restart matrix_synapse
+        success "Synapse restarted."
+    else
+        warn "Synapse (matrix_synapse) is not running."
+        warn "Start the core stack first: cd modules/core && docker compose up -d"
+    fi
+}
+
+# =============================================================================
+# Summary
+# =============================================================================
+print_summary() {
+    echo
+    echo -e "${GREEN}${BOLD}"
+    cat << 'EOF'
+  ┌─────────────────────────────────────────────────────┐
+  │                                                     │
+  │         Hookshot module installed!                  │
+  │                                                     │
+  └─────────────────────────────────────────────────────┘
+EOF
+    echo -e "${RESET}"
+    echo -e "  Hookshot is live. Here's a quick reference:\n"
+    echo -e "  ${BOLD}Webhook ingress${RESET}     https://${HOOKSHOT_DOMAIN}/"
+    echo -e "  ${BOLD}Generic webhook URL${RESET} https://${HOOKSHOT_DOMAIN}/webhook/<token>"
+    echo -e "  ${BOLD}Metrics${RESET}             http://matrix_hookshot:9002/metrics (internal)"
+    echo
+    echo -e "  ${BOLD}Bot username${RESET}        @hookshot:${SERVER_NAME}"
+    echo -e "    Invite this bot to a room to start connecting services."
+    echo
+    echo -e "  ${BOLD}Services enabled by default${RESET}"
+    echo -e "    ${CYAN}Generic webhooks${RESET} — create inbound URLs via '!hookshot setup webhook'"
+    echo -e "    ${CYAN}RSS/Atom feeds${RESET}   — subscribe via '!hookshot setup feed <url>'"
+    echo
+    echo -e "  ${BOLD}To enable GitHub / GitLab / Jira${RESET}"
+    echo -e "    Uncomment and fill in the relevant section in:"
+    echo -e "    ${CYAN}modules/hookshot/hookshot/config.yml${RESET}"
+    echo -e "    Then restart: ${CYAN}docker restart matrix_hookshot${RESET}"
+    echo
+    echo -e "  ${BOLD}Useful commands${RESET}"
+    echo -e "    Logs:     ${CYAN}docker logs -f matrix_hookshot${RESET}"
+    echo -e "    Restart:  ${CYAN}docker restart matrix_hookshot${RESET}"
+    echo -e "    Stop:     ${CYAN}cd modules/hookshot && docker compose down${RESET}"
+    echo
+    echo -e "  Registration file: ${CYAN}modules/hookshot/hookshot/registration.yml${RESET}"
+    echo -e "  Config file:       ${CYAN}modules/hookshot/hookshot/config.yml${RESET}"
+    echo -e "  Passkey:           ${CYAN}modules/hookshot/hookshot/passkey.pem${RESET} (keep private)"
+    echo
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+main() {
+    echo
+    echo -e "${BOLD}${CYAN}"
+    cat << 'EOF'
+  ┌────────────────────────────────────────────────────┐
+  │                                                    │
+  │   Hookshot Module Setup                            │
+  │   Bridges, webhooks, feeds — all in Matrix.        │
+  │                                                    │
+  └────────────────────────────────────────────────────┘
+EOF
+    echo -e "${RESET}"
+
+    echo -e "${BOLD}  Step 1 of 5 — Load existing configuration${RESET}"
+    load_env
+
+    echo
+    echo -e "${BOLD}  Step 2 of 5 — Hookshot configuration${RESET}"
+    gather_config
+
+    echo
+    echo -e "${BOLD}  Step 3 of 5 — Generating secrets and config files${RESET}"
+    generate_config
+
+    echo
+    echo -e "${BOLD}  Step 4 of 5 — Registering appservice with Synapse${RESET}"
+    register_appservice
+
+    echo
+    echo -e "${BOLD}  Step 5 of 5 — Starting services${RESET}"
+    update_caddy
+    start_services
+
+    print_summary
+}
+
+main "$@"

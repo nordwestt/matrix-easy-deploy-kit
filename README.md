@@ -90,14 +90,23 @@ matrix-easy-deploy/
 │   │   └── element/
 │   │       ├── config.json.template
 │   │       └── config.json       # Generated during setup
-│   └── calls/                    # Voice and video calling stack
-│       ├── docker-compose.yml    # coturn + LiveKit
-│       ├── coturn/
-│       │   ├── turnserver.conf.template
-│       │   └── turnserver.conf   # Generated during setup
-│       └── livekit/
-│           ├── livekit.yaml.template
-│           └── livekit.yaml      # Generated during setup
+│   ├── calls/                    # Voice and video calling stack
+│   │   ├── docker-compose.yml    # coturn + LiveKit
+│   │   ├── coturn/
+│   │   │   ├── turnserver.conf.template
+│   │   │   └── turnserver.conf   # Generated during setup
+│   │   └── livekit/
+│   │       ├── livekit.yaml.template
+│   │       └── livekit.yaml      # Generated during setup
+│   └── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
+│       ├── docker-compose.yml    # Hookshot service definition
+│       ├── setup.sh              # Module setup wizard
+│       └── hookshot/
+│           ├── config.yml.template
+│           ├── config.yml        # Generated during module setup
+│           ├── registration.yml.template
+│           ├── registration.yml  # Generated during module setup
+│           └── passkey.pem       # Generated during module setup (keep private)
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -118,6 +127,7 @@ docker logs -f matrix_element
 docker logs -f matrix_postgres
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
+docker logs -f matrix_hookshot  # if hookshot module is installed
 ```
 
 **Stop all services** (data stays intact in Docker volumes)
@@ -164,6 +174,37 @@ bash setup.sh --module <module-name>
 ```
 
 This calls the module's own `setup.sh`, which can ask its own questions, pull its own images, and register itself with the rest of the stack without touching the core configuration.
+
+### Available modules
+
+#### `hookshot` — Bridges, webhooks, and feeds
+
+[Hookshot](https://matrix-org.github.io/matrix-hookshot/latest/hookshot.html) connects your Matrix rooms to external services. Out of the box it enables:
+
+| Feature | How to use |
+|---------|------------|
+| **Generic webhooks** | Invite `@hookshot` to a room, run `!hookshot setup webhook` to get an inbound URL |
+| **RSS/Atom feeds** | `!hookshot setup feed <url>` — posts new items to the room |
+| **GitHub** (optional) | Configure `github:` block in `config.yml`, re-run or restart |
+| **GitLab** (optional) | Configure `gitlab:` block in `config.yml` |
+| **Jira** (optional) | Configure `jira:` block in `config.yml` |
+
+```bash
+bash setup.sh --module hookshot
+```
+
+The wizard will ask for a webhook domain (e.g. `hookshot.example.com`), generate the appservice tokens and RSA passkey, register Hookshot with Synapse, add a Caddy site block, and start the container automatically.
+
+**DNS required:** add an A record for your hookshot domain before running the wizard.
+
+**After setup:**
+```bash
+# View logs
+docker logs -f matrix_hookshot
+
+# Enable GitHub / GitLab / Jira — edit config.yml then:
+docker restart matrix_hookshot
+```
 
 More modules coming. Watch this space.
 

@@ -28,4 +28,10 @@ fi
 info "Starting calls services (coturn + LiveKit)…"
 (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" up -d)
 
+# Start Hookshot if it was installed as a module
+if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/config.yml" ]]; then
+    info "Starting Hookshot…"
+    (cd "${SCRIPT_DIR}/modules/hookshot" && "${DOCKER_COMPOSE[@]}" up -d)
+fi
+
 success "All services started."
