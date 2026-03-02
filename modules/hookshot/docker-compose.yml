@@ -1,7 +1,7 @@
 services:
   hookshot:
     image: halfshot/matrix-hookshot:latest
-    container_name: matrix_hookshot
+    container_name: matrix-hookshot
     restart: unless-stopped
     # No host-port bindings needed — all traffic flows through the shared
     # Docker networks (caddy_net for Caddy proxy + Synapse → Hookshot,
