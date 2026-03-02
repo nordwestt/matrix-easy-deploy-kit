@@ -194,6 +194,9 @@ HOOKSHOT_AS_TOKEN=${HOOKSHOT_AS_TOKEN}
 HOOKSHOT_HS_TOKEN=${HOOKSHOT_HS_TOKEN}
 EOF
 
+    # Ensure encryption storage directory exists and is writable by container
+    mkdir -p "${HOOKSHOT_DATA_DIR}/cryptostore"
+
     # Render config.yml
     info "Rendering hookshot/config.yml…"
     render_template \
@@ -209,6 +212,75 @@ EOF
         "${HOOKSHOT_DATA_DIR}/registration.yml" \
         "$VARS_FILE"
     success "hookshot/registration.yml written."
+}
+
+# =============================================================================
+# Step 4b — Ensure Synapse encryption compatibility flags are enabled
+# =============================================================================
+ensure_synapse_e2ee_flags() {
+    if [[ ! -f "$HOMESERVER_YAML" ]]; then
+        warn "homeserver.yaml not found — skipping Synapse encryption flags update."
+        return
+    fi
+
+    info "Ensuring Synapse MSC3202/MSC2409 compatibility flags are enabled…"
+    python3 - "$HOMESERVER_YAML" <<'PYEOF'
+import sys
+
+filepath = sys.argv[1]
+with open(filepath, 'r', encoding='utf-8') as f:
+    lines = f.read().splitlines()
+
+flags = {
+    'msc3202_device_masquerading': 'true',
+    'msc3202_transaction_extensions': 'true',
+    'msc2409_to_device_messages_enabled': 'true',
+}
+
+exp_idx = next((i for i, line in enumerate(lines) if line.startswith('experimental_features:')), None)
+
+if exp_idx is None:
+    lines.extend([
+        '',
+        'experimental_features:',
+        '  msc3202_device_masquerading: true',
+        '  msc3202_transaction_extensions: true',
+        '  msc2409_to_device_messages_enabled: true',
+    ])
+else:
+    j = exp_idx + 1
+    while j < len(lines):
+        line = lines[j]
+        if line.strip() == '':
+            j += 1
+            continue
+        if not line.startswith('  '):
+            break
+        j += 1
+
+    block_lines = lines[exp_idx + 1:j]
+    existing = {}
+    for idx, line in enumerate(block_lines):
+        stripped = line.strip()
+        if ':' not in stripped:
+            continue
+        key = stripped.split(':', 1)[0].strip()
+        if key in flags:
+            existing[key] = exp_idx + 1 + idx
+
+    for key, value in flags.items():
+        if key in existing:
+            lines[existing[key]] = f'  {key}: {value}'
+        else:
+            lines.insert(j, f'  {key}: {value}')
+            j += 1
+
+with open(filepath, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(lines) + '\n')
+
+print('  Synapse experimental_features updated for Hookshot E2EE.')
+PYEOF
+    success "Synapse encryption compatibility flags ensured."
 }
 
 # =============================================================================
@@ -333,7 +405,7 @@ test_hookshot() {
     echo
     echo -e "  ${CYAN}# 1. Create a BRAND NEW room in Element (important: use a room created\n  #    AFTER hookshot was set up, so its room ID contains your real server_name).${RESET}"
     echo -e "  ${CYAN}#    Then invite the bot:  @hookshot:${SERVER_NAME}${RESET}"
-    echo -e "  ${CYAN}!hookshot setup webhook${RESET}"
+    echo -e "  ${CYAN}!hookshot webhook test${RESET}"
     echo
     echo -e "  ${CYAN}# 2. The bot replies with a unique webhook URL. Test it with:${RESET}"
     echo -e "  ${CYAN}curl -X POST https://${HOOKSHOT_DOMAIN}/webhook/<token> \\${RESET}"
@@ -343,7 +415,7 @@ test_hookshot() {
     echo -e "  ${CYAN}# 3. You should see the message appear in the Matrix room.${RESET}"
     echo
     echo -e "  ${CYAN}# Subscribe to an RSS/Atom feed (in a room with the bot):${RESET}"
-    echo -e "  ${CYAN}!hookshot setup feed https://example.com/feed.rss${RESET}"
+    echo -e "  ${CYAN}!hookshot feed https://example.com/feed.rss${RESET}"
     echo
 }
 
@@ -370,8 +442,9 @@ EOF
     echo -e "    Invite this bot to a room to start connecting services."
     echo
     echo -e "  ${BOLD}Services enabled by default${RESET}"
-    echo -e "    ${CYAN}Generic webhooks${RESET} — create inbound URLs via '!hookshot setup webhook'"
-    echo -e "    ${CYAN}RSS/Atom feeds${RESET}   — subscribe via '!hookshot setup feed <url>'"
+    echo -e "    ${CYAN}Generic webhooks${RESET} — create inbound URLs via '!hookshot webhook <name>'"
+    echo -e "    ${CYAN}RSS/Atom feeds${RESET}   — subscribe via '!hookshot feed <url>'"
+    echo -e "    ${CYAN}Encrypted rooms${RESET}  — supported (E2EE enabled with Redis + cryptostore)"
     echo
     echo -e "  ${BOLD}To enable GitHub / GitLab / Jira${RESET}"
     echo -e "    Uncomment and fill in the relevant section in:"
@@ -423,6 +496,7 @@ EOF
     echo
     echo -e "${BOLD}  Step 5 of 7 — Registering appservice with Synapse${RESET}"
     register_appservice
+    ensure_synapse_e2ee_flags
 
     echo
     echo -e "${BOLD}  Step 6 of 7 — Starting services${RESET}"

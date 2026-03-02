@@ -185,6 +185,7 @@ This calls the module's own `setup.sh`, which can ask its own questions, pull it
 |---------|------------|
 | **Generic webhooks** | Invite `@hookshot` to a room, run `!hookshot webhook <name>` to get an inbound URL |
 | **RSS/Atom feeds** | `!hookshot feed <url>` — posts new items to the room |
+| **Encrypted rooms (E2EE)** | Supported out of the box (Hookshot crypto store + Redis cache + Synapse MSC3202/MSC2409 flags) |
 | **GitHub** (optional) | Configure `github:` block in `config.yml`, re-run or restart |
 | **GitLab** (optional) | Configure `gitlab:` block in `config.yml` |
 | **Jira** (optional) | Configure `jira:` block in `config.yml` |
@@ -205,6 +206,8 @@ docker logs -f matrix-hookshot
 # Enable GitHub / GitLab / Jira — edit config.yml then:
 docker restart matrix-hookshot
 ```
+
+If you installed Hookshot before encrypted-room support was added, run `bash setup.sh --module hookshot` once more to apply the new Redis and Synapse compatibility settings.
 
 **Diagnose wiring issues** (checks registration, tokens, network, and does a live Synapse→Hookshot ping):
 ```bash

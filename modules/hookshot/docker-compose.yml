@@ -1,4 +1,14 @@
 services:
+  hookshot-redis:
+    image: redis:7-alpine
+    container_name: matrix-hookshot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - caddy_net
+
   hookshot:
     image: halfshot/matrix-hookshot:latest
     container_name: matrix-hookshot
@@ -17,6 +27,8 @@ services:
       timeout: 10s
       retries: 5
       start_period: 15s
+    depends_on:
+      - hookshot-redis
 
 networks:
   caddy_net:
