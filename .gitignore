@@ -5,6 +5,10 @@
 caddy/Caddyfile
 modules/core/synapse/homeserver.yaml
 modules/core/element/config.json
+modules/core/synapse_data/*
+*.conf
+*.yaml
+*.yml
 
 # Generated Synapse signing key
 *.signing.key
