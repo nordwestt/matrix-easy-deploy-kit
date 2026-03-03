@@ -26,27 +26,23 @@ flowchart TD
         Redis["⚡ Redis Cache"]
         Coturn["🔁 coturn\n(TURN)"]
         LiveKit["📡 LiveKit\n(SFU)"]
-        Hookshot["Hookshot\n(Bridge)"]
     end
     User["👤 User"]
     User -->|HTTPS| Caddy
     Caddy -->|Matrix API| Synapse
     Caddy -->|Element Web| Element
     Caddy -->|LiveKit| LiveKit
-    Caddy -->|Hookshot| Hookshot
     Element -->|Matrix Client| Synapse
     Synapse -->|DB| PostgreSQL
     Synapse -->|Cache| Redis
     Synapse -->|TURN| Coturn
     Synapse -->|SFU| LiveKit
-    Hookshot -->|Bridge| Synapse
-    Hookshot -->|Cache| Redis
     Coturn -->|TURN| Synapse
     LiveKit -->|SFU| Synapse
     LiveKit -->|TURN| Coturn
     classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
-    class Caddy,Synapse,Coturn,Hookshot teal;
+    class Caddy,Synapse,Coturn teal;
     class Element,PostgreSQL,Redis,LiveKit mint;
     class User mint;
     style Server stroke:#5eead4,stroke-width:4px,rx:16px,fill:#0f172a;
