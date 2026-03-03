@@ -19,25 +19,23 @@ One script. A few questions. Your own corner of the internet and the ability to 
 flowchart TD
     subgraph Server["Server"]
         direction TB
-        Caddy["🛡 Caddy\n(TLS/Proxy)"]
+        Caddy["🛡 Caddy (TLS/Proxy)"]
         Element["💬 Element Web"]
         Synapse["🧠 Synapse\n(Matrix)"]
         PostgreSQL["🐘 PostgreSQL"]
         Redis["⚡ Redis Cache"]
-        Coturn["🔁 coturn\n(TURN)"]
-        LiveKit["📡 LiveKit\n(SFU)"]
+        Coturn["🔁 Coturn (TURN)"]
+        LiveKit["📡 LiveKit (SFU)"]
     end
     User["👤 User"]
-    User -->|TLS| Caddy
-    Caddy --> Synapse
-    Caddy --> Element
-    Caddy --> LiveKit
-    Synapse --> PostgreSQL
-    Synapse --> Redis
-    Synapse --> Coturn
-    Synapse --> LiveKit
-    LiveKit --> Synapse
-    LiveKit --> Coturn
+    User ---|TLS| Caddy
+    Caddy --- Synapse
+    Caddy --- Element
+    Caddy --- LiveKit
+    Caddy --- Coturn
+    Synapse --- PostgreSQL
+    Synapse --- Redis
+    Synapse --- LiveKit
     classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     class Caddy,Synapse,Coturn teal;
