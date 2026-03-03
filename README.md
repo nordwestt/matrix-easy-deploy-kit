@@ -28,18 +28,16 @@ flowchart TD
         LiveKit["📡 LiveKit\n(SFU)"]
     end
     User["👤 User"]
-    User -->|HTTPS| Caddy
-    Caddy -->|Matrix API| Synapse
-    Caddy -->|Element Web| Element
-    Caddy -->|LiveKit| LiveKit
-    Element -->|Matrix Client| Synapse
-    Synapse -->|DB| PostgreSQL
-    Synapse -->|Cache| Redis
-    Synapse -->|TURN| Coturn
-    Synapse -->|SFU| LiveKit
-    Coturn -->|TURN| Synapse
-    LiveKit -->|SFU| Synapse
-    LiveKit -->|TURN| Coturn
+    User -->|TLS| Caddy
+    Caddy --> Synapse
+    Caddy --> Element
+    Caddy --> LiveKit
+    Synapse --> PostgreSQL
+    Synapse --> Redis
+    Synapse --> Coturn
+    Synapse --> LiveKit
+    LiveKit --> Synapse
+    LiveKit --> Coturn
     classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     class Caddy,Synapse,Coturn teal;
