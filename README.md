@@ -19,16 +19,16 @@ One script. A few questions. Your own corner of the internet and the ability to 
 flowchart TD
     subgraph Server["Server"]
         direction TB
-        Caddy["<img src='https://caddyserver.com/resources/images/logo-dark.svg' width='32'/> Caddy\n(TLS/Proxy)"]
-        Element["<img src='https://element.io/assets-32bb636196f91ed59d7a49190e26b42c/5ef25c0d30ee3108da4c25e9/5f365d3197194f8c73b00112_logo-mark-primary.svg' width='32'/> Element Web"]
-        Synapse["<img src='https://matrix.org/images/matrix-logo-white.svg' width='32'/> Synapse\n(Matrix)"]
-        PostgreSQL["<img src='https://www.postgresql.org/media/img/about/press/elephant.png' width='32'/> PostgreSQL"]
-        Redis["<img src='https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Redis_logo.svg/250px-Redis_logo.svg.png' width='32'/> Redis"]
-        Coturn["coturn\n(TURN)"]
-        LiveKit["<img src='https://livekit.io/favicon.ico' width='32'/> LiveKit\n(SFU)"]
+        Caddy["🛡 Caddy\n(TLS/Proxy)"]
+        Element["💬 Element Web"]
+        Synapse["🧠 Synapse\n(Matrix)"]
+        PostgreSQL["🐘 PostgreSQL"]
+        Redis["⚡ Redis Cache"]
+        Coturn["🔁 coturn\n(TURN)"]
+        LiveKit["📡 LiveKit\n(SFU)"]
         Hookshot["Hookshot\n(Bridge)"]
     end
-    User["<img src='https://cdn-icons-png.flaticon.com/512/1077/1077012.png' width='28'/> User"]
+    User["👤 User"]
     User -->|HTTPS| Caddy
     Caddy -->|Matrix API| Synapse
     Caddy -->|Element Web| Element
