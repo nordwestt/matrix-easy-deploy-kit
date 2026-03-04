@@ -14,6 +14,40 @@ One script. A few questions. Your own corner of the internet and the ability to 
   <td align="center"><img src="https://livekit.io/favicon.ico" alt="LiveKit" width="40"/></td>
 </tr></table>
 
+### System overview:
+
+```mermaid
+%%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#2dd4bf', 'edgeLabelBackground':'#134e4a', 'nodeTextColor':'#e0f2f1', 'fontFamily':'Inter', 'nodeBorderRadius':'12px', 'clusterBorderRadius':'16px', 'secondaryColor':'#5eead4', 'tertiaryColor':'#99f6e4', 'lineColor':'#5eead4'}}}%%
+flowchart TD
+    subgraph Server["Server"]
+        direction TB
+        Caddy["🔐 Caddy (TLS/Proxy)"]
+        Element["💬 Element Web"]
+        Synapse["🧠 Synapse (Matrix)"]
+        PostgreSQL["🐘 PostgreSQL"]
+        Redis["⚡ Redis Cache"]
+        Coturn["🔁 Coturn (TURN)"]
+        LiveKit["📡 LiveKit (SFU)"]
+    end
+    User["👤 User"]
+    User ---|TLS| Caddy
+    Caddy --- Synapse
+    Caddy --- Element
+    Caddy --- LiveKit
+    Caddy --- Coturn
+    Synapse --- PostgreSQL
+    Synapse --- Redis
+    Synapse --- LiveKit
+    classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
+    classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
+    class Caddy,Synapse,Element teal;
+    class PostgreSQL,Redis,LiveKit,Coturn mint;
+    class User mint;
+    style Server stroke:#5eead4,stroke-width:4px,rx:16px,fill:#0f172a;
+    style User stroke:#5eead4,stroke-width:2px,rx:12px;
+
+```
+
 ---
 
 ## What you get
