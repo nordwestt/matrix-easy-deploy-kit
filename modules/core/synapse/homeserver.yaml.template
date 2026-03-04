@@ -36,6 +36,12 @@ database:
     cp_min: 5
     cp_max: 10
 
+# Redis — used by Synapse workers/caching and background coordination.
+redis:
+  enabled: true
+  host: "{{SHARED_REDIS_HOST}}"
+  port: {{SHARED_REDIS_PORT}}
+
 # Logging
 log_config: "/data/log.config"
 
