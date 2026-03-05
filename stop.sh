@@ -13,6 +13,11 @@ if [[ -f "${SCRIPT_DIR}/.env" ]]; then
     set +o allexport
 fi
 
+_element_profile=""
+if [[ "${INSTALL_ELEMENT:-true}" == "true" ]]; then
+    _element_profile="--profile element"
+fi
+
 # Stop Hookshot if it was installed as a module
 if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/config.yml" ]]; then
     info "Stopping Hookshot…"
@@ -23,7 +28,7 @@ info "Stopping calls services (coturn + LiveKit)…"
 (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" down)
 
 info "Stopping core services…"
-(cd "${SCRIPT_DIR}/modules/core" && "${DOCKER_COMPOSE[@]}" down)
+(cd "${SCRIPT_DIR}/modules/core" && "${DOCKER_COMPOSE[@]}" $_element_profile down --remove-orphans)
 
 info "Stopping Caddy…"
 (cd "${SCRIPT_DIR}/caddy" && "${DOCKER_COMPOSE[@]}" down)
