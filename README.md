@@ -67,6 +67,8 @@ After running `setup.sh` you'll have a working Matrix homeserver — the whole s
 
 Everything runs in Docker Compose. Caddy manages your TLS certificate without you lifting a finger.
 
+SSO via OIDC (Google and other compatible providers) is supported by the setup wizard.
+
 ---
 
 ## Why does this exist?
@@ -104,10 +106,35 @@ The wizard will ask you:
 3. **Admin username and password**
 4. Whether to allow public registration
 5. Whether to enable federation
-6. Whether to install Element Web, and on which domain
-7. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
+6. Whether to enable SSO (OIDC/OAuth2)
+7. If SSO is enabled: provider name, issuer URL, client ID, and client secret
+8. Whether to install Element Web, and on which domain
+9. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
 
 Everything else — database passwords, signing keys, TURN secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
+
+## SSO (OIDC / OAuth2)
+
+This project configures Synapse `oidc_providers`, which works with Google and other OIDC-compatible identity providers.
+
+During setup (default: enabled), provide:
+- Provider display name (for login UI)
+- OIDC issuer URL (Google: `https://accounts.google.com/`)
+- OIDC client ID
+- OIDC client secret
+
+When creating the OIDC app in your identity provider, set the redirect/callback URL to:
+
+```text
+https://<your-matrix-domain>/_synapse/client/oidc/callback
+```
+
+Example for Google:
+- Create an OAuth client in Google Cloud Console
+- Add the callback URL above as an authorized redirect URI
+- Paste client ID + client secret into the setup wizard
+
+You can disable SSO in the wizard if you only want local Matrix passwords.
 
 ---
 
@@ -348,6 +375,7 @@ docker inspect matrix_postgres | grep -A 5 Health
 
 - Your `.env` file contains database credentials, TURN secrets, LiveKit API keys, and other internal secrets. It's in `.gitignore` — keep it that way.
 - Public registration is off by default. Think carefully before turning it on; an open Matrix server is a spam target.
+- OIDC SSO is on by default in the wizard. If you don't want external IdPs, disable SSO during setup.
 - Federation is on by default. If you want a private, islands-only server, disable it during setup.
 - The Synapse admin API (`/_synapse/admin/`) is accessible via Caddy. It requires a valid admin access token to use — the setup just exposes the routing; auth is Synapse's business.
 - coturn runs with `network_mode: host` so it can bind UDP relay ports directly. Ensure your firewall allows:

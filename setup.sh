@@ -164,6 +164,48 @@ gather_config() {
         ALLOW_PUBLIC_ROOMS_FEDERATION="false"
     fi
 
+    ask_yn ENABLE_SSO_INPUT \
+        "Enable SSO login (OIDC/OAuth2, e.g. Google)?" \
+        "n"
+    if [[ "$ENABLE_SSO_INPUT" == "y" ]]; then
+        ENABLE_SSO="true"
+        ask OIDC_PROVIDER_NAME "SSO provider display name" "Google"
+        while [[ -z "$OIDC_PROVIDER_NAME" ]]; do
+            warn "Provider name is required when SSO is enabled."
+            ask OIDC_PROVIDER_NAME "SSO provider display name" "Google"
+        done
+
+        ask OIDC_ISSUER_URL "OIDC issuer URL" "https://accounts.google.com/"
+        while [[ -z "$OIDC_ISSUER_URL" ]]; do
+            warn "OIDC issuer URL is required when SSO is enabled."
+            ask OIDC_ISSUER_URL "OIDC issuer URL" "https://accounts.google.com/"
+        done
+
+        ask OIDC_CLIENT_ID "OIDC client ID" ""
+        while [[ -z "$OIDC_CLIENT_ID" ]]; do
+            warn "OIDC client ID is required when SSO is enabled."
+            ask OIDC_CLIENT_ID "OIDC client ID" ""
+        done
+
+        ask_secret OIDC_CLIENT_SECRET "OIDC client secret"
+        while [[ -z "$OIDC_CLIENT_SECRET" ]]; do
+            warn "OIDC client secret is required when SSO is enabled."
+            ask_secret OIDC_CLIENT_SECRET "OIDC client secret"
+        done
+
+        OIDC_IDP_ID="$(echo "$OIDC_PROVIDER_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g')"
+        if [[ -z "$OIDC_IDP_ID" ]]; then
+            OIDC_IDP_ID="oidc"
+        fi
+    else
+        ENABLE_SSO="false"
+        OIDC_PROVIDER_NAME=""
+        OIDC_ISSUER_URL=""
+        OIDC_CLIENT_ID=""
+        OIDC_CLIENT_SECRET=""
+        OIDC_IDP_ID=""
+    fi
+
     ask_yn INSTALL_ELEMENT_INPUT \
         "Install Element web client? (skip if you already have a client)" \
         "y"
@@ -205,6 +247,11 @@ gather_config() {
     echo -e "  Admin user      : ${CYAN}${ADMIN_USERNAME}${RESET}"
     echo -e "  Public reg.     : ${CYAN}${ENABLE_REGISTRATION}${RESET}"
     echo -e "  Federation      : ${CYAN}${ENABLE_FEDERATION_INPUT}${RESET}"
+    if [[ "$ENABLE_SSO" == "true" ]]; then
+        echo -e "  SSO (OIDC)      : ${CYAN}enabled${RESET} (${OIDC_PROVIDER_NAME})"
+    else
+        echo -e "  SSO (OIDC)      : ${CYAN}disabled${RESET}"
+    fi
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
         echo -e "  Element client  : ${CYAN}${ELEMENT_DOMAIN}${RESET}"
     else
@@ -241,6 +288,38 @@ generate_config() {
     COTURN_SECRET="$(generate_secret)"
     LIVEKIT_KEY="matrix"
     LIVEKIT_SECRET="$(generate_secret)"
+
+    if [[ "$ENABLE_SSO" == "true" ]]; then
+        OIDC_PROVIDERS_JSON="$(
+            OIDC_IDP_ID="$OIDC_IDP_ID" \
+            OIDC_PROVIDER_NAME="$OIDC_PROVIDER_NAME" \
+            OIDC_ISSUER_URL="$OIDC_ISSUER_URL" \
+            OIDC_CLIENT_ID="$OIDC_CLIENT_ID" \
+            OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET" \
+            python3 - <<'PY'
+import json
+import os
+
+providers = [{
+    "idp_id": os.environ["OIDC_IDP_ID"] or "oidc",
+    "idp_name": os.environ["OIDC_PROVIDER_NAME"],
+    "discover": True,
+    "issuer": os.environ["OIDC_ISSUER_URL"],
+    "client_id": os.environ["OIDC_CLIENT_ID"],
+    "client_secret": os.environ["OIDC_CLIENT_SECRET"],
+    "scopes": ["openid", "profile", "email"],
+    "user_mapping_provider": {
+        "config": {
+            "subject_claim": "sub"
+        }
+    }
+}]
+print(json.dumps(providers, separators=(",", ":")))
+PY
+        )"
+    else
+        OIDC_PROVIDERS_JSON="[]"
+    fi
 
     # Detect the server's public IP address — required by coturn for NAT traversal.
     info "Detecting public IP address…"
@@ -279,6 +358,12 @@ MACAROON_SECRET_KEY=${MACAROON_SECRET_KEY}
 FORM_SECRET=${FORM_SECRET}
 
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
+ENABLE_SSO=${ENABLE_SSO}
+OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME}
+OIDC_ISSUER_URL=${OIDC_ISSUER_URL}
+OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
+OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+OIDC_IDP_ID=${OIDC_IDP_ID}
 INSTALL_ELEMENT=${INSTALL_ELEMENT}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 
@@ -309,6 +394,7 @@ FORM_SECRET=${FORM_SECRET}
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 FEDERATION_WHITELIST=${FEDERATION_WHITELIST}
 ALLOW_PUBLIC_ROOMS_FEDERATION=${ALLOW_PUBLIC_ROOMS_FEDERATION}
+OIDC_PROVIDERS_JSON=${OIDC_PROVIDERS_JSON}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 SERVER_IP=${SERVER_IP}
 COTURN_SECRET=${COTURN_SECRET}
