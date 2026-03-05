@@ -107,6 +107,15 @@ The wizard will ask you:
 6. Whether to install Element Web, and on which domain
 7. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
 
+### Important: `MATRIX_DOMAIN` vs `SERVER_NAME`
+
+- `MATRIX_DOMAIN` is where the homeserver API is hosted (for example `matrix.example.com`).
+- `SERVER_NAME` is the Matrix identity domain in MXIDs (for example `@alice:example.com`).
+
+If these are different, federation discovery still starts from `SERVER_NAME`, so DNS for **both** names must point to this host (or `SERVER_NAME` must otherwise serve `/.well-known/matrix/*` that delegates to your homeserver).
+
+This project now generates Caddy config that serves Matrix endpoints on both hostnames automatically.
+
 Everything else — database passwords, signing keys, TURN secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
 
 ---

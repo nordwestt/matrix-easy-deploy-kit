@@ -214,6 +214,9 @@ gather_config() {
     echo
     echo -e "  ${YELLOW}DNS check:${RESET} make sure these A records point to this server before proceeding:"
     echo -e "    ${CYAN}${MATRIX_DOMAIN}${RESET}  →  <this server's IP>"
+    if [[ "$SERVER_NAME" != "$MATRIX_DOMAIN" ]]; then
+        echo -e "    ${CYAN}${SERVER_NAME}${RESET}  →  <this server's IP>  ${YELLOW}(required for federation delegation)${RESET}"
+    fi
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
         echo -e "    ${CYAN}${ELEMENT_DOMAIN}${RESET}  →  <this server's IP>"
     fi
@@ -262,6 +265,14 @@ generate_config() {
     SHARED_REDIS_PORT="${SHARED_REDIS_PORT:-6379}"
     SHARED_REDIS_URL="${SHARED_REDIS_URL:-redis://${SHARED_REDIS_HOST}:${SHARED_REDIS_PORT}}"
 
+    # Caddy must answer Matrix endpoints on both MATRIX_DOMAIN and SERVER_NAME
+    # when they differ, so federation discovery on SERVER_NAME works.
+    if [[ "$SERVER_NAME" == "$MATRIX_DOMAIN" ]]; then
+        CADDY_MATRIX_HOSTS="$MATRIX_DOMAIN"
+    else
+        CADDY_MATRIX_HOSTS="$MATRIX_DOMAIN, $SERVER_NAME"
+    fi
+
     # -- Write .env -----------------------------------------------------------
     info "Writing ${DEPLOY_ENV}…"
     cat > "$DEPLOY_ENV" <<EOF
@@ -291,6 +302,7 @@ LIVEKIT_SECRET=${LIVEKIT_SECRET}
 SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
 SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
 SHARED_REDIS_URL=${SHARED_REDIS_URL}
+CADDY_MATRIX_HOSTS=${CADDY_MATRIX_HOSTS}
 EOF
     chmod 600 "$DEPLOY_ENV"
     success ".env written."
