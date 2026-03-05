@@ -219,6 +219,11 @@ bash start.sh
 bash update.sh
 ```
 
+**Install Synapse HTTP antispam module** (for Draupnir homeserver antispam mode)
+```bash
+bash scripts/install-synapse-http-antispam.sh
+```
+
 **Reload Caddy after editing the Caddyfile**
 ```bash
 docker exec caddy caddy reload --config /etc/caddy/Caddyfile
@@ -306,6 +311,12 @@ The wizard asks for a bot MXID, bot access token, management room, and admin MXI
 - `modules/draupnir/draupnir/config/production.yaml`
 
 Optional during setup: it can also add a `synapse-http-antispam` module block to Synapse (`homeserver.yaml`). This is disabled by default because the Python module must be installed inside the Synapse environment first.
+
+Install that Python module with:
+
+```bash
+bash scripts/install-synapse-http-antispam.sh
+```
 
 **After setup:**
 ```bash

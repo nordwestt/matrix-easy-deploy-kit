@@ -298,6 +298,7 @@ PYEOF
 
     warn "synapse-http-antispam must be installed inside the Synapse Python environment."
     warn "If it is not installed, Synapse may fail to start until the module is installed or removed."
+    warn "Run: bash scripts/install-synapse-http-antispam.sh"
 }
 
 # =============================================================================
@@ -346,6 +347,9 @@ EOF
     echo -e "    Logs:     ${CYAN}docker logs -f matrix-draupnir${RESET}"
     echo -e "    Restart:  ${CYAN}docker restart matrix-draupnir${RESET}"
     echo -e "    Stop:     ${CYAN}cd modules/draupnir && docker compose down${RESET}"
+    if [[ "$DRAUPNIR_ENABLE_SYNAPSE_HTTP_ANTISPAM" == "true" ]]; then
+        echo -e "    Install Synapse antispam module: ${CYAN}bash scripts/install-synapse-http-antispam.sh${RESET}"
+    fi
     echo
     echo -e "  ${BOLD}Next steps${RESET}"
     echo -e "    1) Invite ${CYAN}${DRAUPNIR_BOT_MXID}${RESET} to your management room"
