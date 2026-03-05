@@ -4,7 +4,7 @@
 # visitors are redirected to app.element.io pre-configured for this server.
 
 # Matrix homeserver — Synapse API only
-{{MATRIX_DOMAIN}} {
+{{CADDY_MATRIX_HOSTS}} {
     # Synapse client & federation API
     handle /_matrix/* {
         reverse_proxy matrix_synapse:8008
