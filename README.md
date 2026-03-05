@@ -107,11 +107,12 @@ The wizard will ask you:
 4. Whether to allow public registration
 5. Whether to enable federation
 6. Whether to enable SSO (OIDC/OAuth2)
-7. If SSO is enabled: provider name, issuer URL, client ID, and client secret
-8. If SSO is enabled: whether unknown SSO users can auto-register
-9. If SSO is enabled: optional OIDC claim allowlist (for org/group/domain control)
-10. Whether to install Element Web, and on which domain
-11. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
+7. If SSO is enabled: one or more providers (loop: add provider, then optionally add another)
+8. For each provider: name, issuer URL, client ID, client secret
+9. For each provider: whether unknown users can auto-register via that provider
+10. For each provider: optional OIDC claim allowlist (org/group/domain control)
+11. Whether to install Element Web, and on which domain
+12. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
 
 Everything else — database passwords, signing keys, TURN secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
 
@@ -126,6 +127,8 @@ During setup (default: enabled), provide:
 - OIDC client secret
 - Whether SSO can auto-register unknown users (recommended: **No** for private servers)
 - Optional claim allowlist (recommended) to restrict who can sign in
+
+You can configure multiple providers in one run (for example Google + Okta + Authentik).
 
 When creating the OIDC app in your identity provider, set the redirect/callback URL to:
 
@@ -155,6 +158,21 @@ Common examples:
 Notes:
 - Group-based restrictions only work if your IdP actually includes group claims in OIDC userinfo/token.
 - Claim matching is exact (or one-of exact values), so use the exact value your provider emits.
+
+### Pre-creating approved users (what this means)
+
+Pre-creating means creating local Matrix accounts in advance (for approved people only), then letting SSO users log into those existing accounts.
+
+Advantages:
+- Prevents surprise account creation from any user who can pass IdP login.
+- Gives tighter onboarding control (who gets access and when).
+- Lets you combine IdP checks + explicit local account approval for defense in depth.
+
+Use the helper to create approved accounts:
+
+```bash
+bash scripts/create-user.sh
+```
 
 You can disable SSO in the wizard if you only want local Matrix passwords.
 
@@ -205,6 +223,7 @@ matrix-easy-deploy/
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
+  ├── sso.sh                    # SSO/OIDC setup helpers (used by setup.sh)
     └── create-admin.sh           # Admin user registration helper
 ```
 

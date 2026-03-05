@@ -15,6 +15,8 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/scripts/lib.sh"
+# shellcheck source=scripts/sso.sh
+source "${SCRIPT_DIR}/scripts/sso.sh"
 
 IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
 DEPLOY_ENV="${SCRIPT_DIR}/.env"
@@ -164,87 +166,7 @@ gather_config() {
         ALLOW_PUBLIC_ROOMS_FEDERATION="false"
     fi
 
-    ask_yn ENABLE_SSO_INPUT \
-        "Enable SSO login (OIDC/OAuth2, e.g. Google)?" \
-        "n"
-    if [[ "$ENABLE_SSO_INPUT" == "y" ]]; then
-        ENABLE_SSO="true"
-        ask OIDC_PROVIDER_NAME "SSO provider display name" "Google"
-        while [[ -z "$OIDC_PROVIDER_NAME" ]]; do
-            warn "Provider name is required when SSO is enabled."
-            ask OIDC_PROVIDER_NAME "SSO provider display name" "Google"
-        done
-
-        ask OIDC_ISSUER_URL "OIDC issuer URL" "https://accounts.google.com/"
-        while [[ -z "$OIDC_ISSUER_URL" ]]; do
-            warn "OIDC issuer URL is required when SSO is enabled."
-            ask OIDC_ISSUER_URL "OIDC issuer URL" "https://accounts.google.com/"
-        done
-
-        ask OIDC_CLIENT_ID "OIDC client ID" ""
-        while [[ -z "$OIDC_CLIENT_ID" ]]; do
-            warn "OIDC client ID is required when SSO is enabled."
-            ask OIDC_CLIENT_ID "OIDC client ID" ""
-        done
-
-        ask_secret OIDC_CLIENT_SECRET "OIDC client secret"
-        while [[ -z "$OIDC_CLIENT_SECRET" ]]; do
-            warn "OIDC client secret is required when SSO is enabled."
-            ask_secret OIDC_CLIENT_SECRET "OIDC client secret"
-        done
-
-        OIDC_IDP_ID="$(echo "$OIDC_PROVIDER_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g')"
-        if [[ -z "$OIDC_IDP_ID" ]]; then
-            OIDC_IDP_ID="oidc"
-        fi
-
-        ask_yn OIDC_ENABLE_AUTO_REGISTRATION_INPUT \
-            "Allow NEW users to auto-register via SSO?" \
-            "n"
-        if [[ "$OIDC_ENABLE_AUTO_REGISTRATION_INPUT" == "y" ]]; then
-            OIDC_ENABLE_AUTO_REGISTRATION="true"
-        else
-            OIDC_ENABLE_AUTO_REGISTRATION="false"
-        fi
-
-        ask_yn OIDC_RESTRICT_BY_CLAIMS_INPUT \
-            "Restrict SSO to specific OIDC claim values? (recommended)" \
-            "y"
-        if [[ "$OIDC_RESTRICT_BY_CLAIMS_INPUT" == "y" ]]; then
-            ask OIDC_RESTRICT_CLAIM \
-                "OIDC claim to match (e.g. hd, groups, email)" \
-                "hd"
-            while [[ -z "$OIDC_RESTRICT_CLAIM" ]]; do
-                warn "Claim name is required when claim restriction is enabled."
-                ask OIDC_RESTRICT_CLAIM \
-                    "OIDC claim to match (e.g. hd, groups, email)" \
-                    "hd"
-            done
-
-            ask OIDC_RESTRICT_VALUES \
-                "Allowed claim value(s), comma-separated" \
-                ""
-            while [[ -z "$OIDC_RESTRICT_VALUES" ]]; do
-                warn "Provide at least one allowed claim value."
-                ask OIDC_RESTRICT_VALUES \
-                    "Allowed claim value(s), comma-separated" \
-                    ""
-            done
-        else
-            OIDC_RESTRICT_CLAIM=""
-            OIDC_RESTRICT_VALUES=""
-        fi
-    else
-        ENABLE_SSO="false"
-        OIDC_PROVIDER_NAME=""
-        OIDC_ISSUER_URL=""
-        OIDC_CLIENT_ID=""
-        OIDC_CLIENT_SECRET=""
-        OIDC_IDP_ID=""
-        OIDC_ENABLE_AUTO_REGISTRATION="false"
-        OIDC_RESTRICT_CLAIM=""
-        OIDC_RESTRICT_VALUES=""
-    fi
+    gather_sso_config
 
     ask_yn INSTALL_ELEMENT_INPUT \
         "Install Element web client? (skip if you already have a client)" \
@@ -288,13 +210,8 @@ gather_config() {
     echo -e "  Public reg.     : ${CYAN}${ENABLE_REGISTRATION}${RESET}"
     echo -e "  Federation      : ${CYAN}${ENABLE_FEDERATION_INPUT}${RESET}"
     if [[ "$ENABLE_SSO" == "true" ]]; then
-        echo -e "  SSO (OIDC)      : ${CYAN}enabled${RESET} (${OIDC_PROVIDER_NAME})"
-        echo -e "  SSO auto-signup : ${CYAN}${OIDC_ENABLE_AUTO_REGISTRATION}${RESET}"
-        if [[ -n "$OIDC_RESTRICT_CLAIM" ]]; then
-            echo -e "  SSO allowlist   : ${CYAN}${OIDC_RESTRICT_CLAIM}${RESET} in (${OIDC_RESTRICT_VALUES})"
-        else
-            echo -e "  SSO allowlist   : ${CYAN}none${RESET}"
-        fi
+        echo -e "  SSO (OIDC)      : ${CYAN}enabled${RESET} (${OIDC_PROVIDER_COUNT} provider(s))"
+        echo -e "  Providers       : ${CYAN}${OIDC_PROVIDER_NAMES}${RESET}"
     else
         echo -e "  SSO (OIDC)      : ${CYAN}disabled${RESET}"
     fi
@@ -335,57 +252,9 @@ generate_config() {
     LIVEKIT_KEY="matrix"
     LIVEKIT_SECRET="$(generate_secret)"
 
-    if [[ "$ENABLE_SSO" == "true" ]]; then
-        OIDC_PROVIDERS_JSON="$(
-            OIDC_IDP_ID="$OIDC_IDP_ID" \
-            OIDC_PROVIDER_NAME="$OIDC_PROVIDER_NAME" \
-            OIDC_ISSUER_URL="$OIDC_ISSUER_URL" \
-            OIDC_CLIENT_ID="$OIDC_CLIENT_ID" \
-            OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET" \
-            OIDC_ENABLE_AUTO_REGISTRATION="$OIDC_ENABLE_AUTO_REGISTRATION" \
-            OIDC_RESTRICT_CLAIM="$OIDC_RESTRICT_CLAIM" \
-            OIDC_RESTRICT_VALUES="$OIDC_RESTRICT_VALUES" \
-            python3 - <<'PY'
-import json
-import os
-
-provider = {
-    "idp_id": os.environ["OIDC_IDP_ID"] or "oidc",
-    "idp_name": os.environ["OIDC_PROVIDER_NAME"],
-    "discover": True,
-    "issuer": os.environ["OIDC_ISSUER_URL"],
-    "client_id": os.environ["OIDC_CLIENT_ID"],
-    "client_secret": os.environ["OIDC_CLIENT_SECRET"],
-    "enable_registration": os.environ.get("OIDC_ENABLE_AUTO_REGISTRATION", "false") == "true",
-    "scopes": ["openid", "profile", "email"],
-    "user_mapping_provider": {
-        "config": {
-            "subject_claim": "sub"
-        }
-    }
-}
-
-restrict_claim = os.environ.get("OIDC_RESTRICT_CLAIM", "").strip()
-restrict_values_raw = os.environ.get("OIDC_RESTRICT_VALUES", "")
-if restrict_claim:
-    allowed_values = [value.strip() for value in restrict_values_raw.split(",") if value.strip()]
-    if len(allowed_values) == 1:
-        provider["attribute_requirements"] = [{
-            "attribute": restrict_claim,
-            "value": allowed_values[0],
-        }]
-    elif len(allowed_values) > 1:
-        provider["attribute_requirements"] = [{
-            "attribute": restrict_claim,
-            "one_of": allowed_values,
-        }]
-
-providers = [provider]
-print(json.dumps(providers, separators=(",", ":")))
-PY
-        )"
-    else
+    if [[ "$ENABLE_SSO" != "true" || -z "${OIDC_PROVIDERS_JSON:-}" ]]; then
         OIDC_PROVIDERS_JSON="[]"
+        OIDC_PROVIDER_COUNT="0"
     fi
 
     # Detect the server's public IP address — required by coturn for NAT traversal.
@@ -426,14 +295,9 @@ FORM_SECRET=${FORM_SECRET}
 
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 ENABLE_SSO=${ENABLE_SSO}
-OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME}
-OIDC_ISSUER_URL=${OIDC_ISSUER_URL}
-OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
-OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
-OIDC_IDP_ID=${OIDC_IDP_ID}
-OIDC_ENABLE_AUTO_REGISTRATION=${OIDC_ENABLE_AUTO_REGISTRATION}
-OIDC_RESTRICT_CLAIM=${OIDC_RESTRICT_CLAIM}
-OIDC_RESTRICT_VALUES=${OIDC_RESTRICT_VALUES}
+OIDC_PROVIDER_COUNT=${OIDC_PROVIDER_COUNT}
+OIDC_PROVIDER_NAMES=${OIDC_PROVIDER_NAMES}
+OIDC_PROVIDERS_JSON=${OIDC_PROVIDERS_JSON}
 INSTALL_ELEMENT=${INSTALL_ELEMENT}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 
