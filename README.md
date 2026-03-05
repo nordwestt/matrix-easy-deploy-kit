@@ -99,6 +99,19 @@ cd matrix-easy-deploy-kit
 bash setup.sh
 ```
 
+`setup.sh` now opens an interactive operator wizard where you can:
+- run first-time setup,
+- install/configure modules,
+- create users/admins,
+- start/stop/update services,
+- and tail logs.
+
+If you want to jump straight into first-time setup without the menu:
+
+```bash
+bash setup.sh --full-setup
+```
+
 The wizard will ask you:
 
 1. **Your Matrix domain** — something like `matrix.example.com`
@@ -334,11 +347,11 @@ docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 ## Re-running setup
 
-If you need to change your domain or reconfigure anything, you can re-run `setup.sh`. It will regenerate all config files and restart services. If you already have data you want to preserve, stop first:
+If you need to change your domain or reconfigure anything, open the wizard with `bash setup.sh` and select `First setup (full wizard)`, or run the direct command below. It will regenerate all config files and restart services. If you already have data you want to preserve, stop first:
 
 ```bash
 bash stop.sh
-bash setup.sh
+bash setup.sh --full-setup
 ```
 
 > Secrets (database password, signing keys, TURN shared secret, LiveKit API key, etc.) are re-generated each time you run setup. If you want to preserve an existing database, back it up first, or manually edit `.env` and the config files instead of re-running setup.
@@ -352,6 +365,8 @@ The project is designed to grow. Each optional component (a bridge to Discord, a
 ```bash
 bash setup.sh --module <module-name>
 ```
+
+You can also install modules from the interactive wizard (`bash setup.sh` → `Install/configure module`).
 
 This calls the module's own `setup.sh`, which can ask its own questions, pull its own images, and register itself with the rest of the stack without touching the core configuration.
 
