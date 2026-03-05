@@ -14,9 +14,22 @@ print_banner() {
   ║     \_|  |_/\_| |_/\_/ \_| \_|\___/\/   \/        ║
   ║                                                   ║
   ║        Easy Deploy Kit  :: Setup Wizard           ║
+  ║                                                   ║
+  ║                   *                               ║
+  ║                  / \                              ║
+  ║                 /___\                             ║
+  ║                ( o o )            * *             ║
+  ║                )  ^  (           /   * *          ║
+  ║        ________() - ()________  /     * * *       ║
+  ║       \| _____ )()()() ______ |/      * * *       ║
+  ║        |/      ()()()(       \|      * * * *      ║
+  ║                | )() |                            ║
+  ║                /     \                            ║
+  ║               / *  *  \                           ║
+  ║              /   *  *  \                          ║
+  ║             / *_  *  _  \                         ║
+  ║                                                   ║
   ╚═══════════════════════════════════════════════════╝
 EOF
     echo -e "${RESET}"
-  echo -e "  Control plane for ${BOLD}Synapse${RESET}, ${BOLD}Caddy${RESET}, modules, users, and lifecycle ops."
-  echo -e "  Clean defaults. Low noise. ${GREEN}A little hacker signal.${RESET}\n"
 }
