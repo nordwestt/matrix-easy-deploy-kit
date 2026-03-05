@@ -52,7 +52,7 @@ flowchart TD
 
 ## What you get
 
-After running `setup.sh` you'll have a working Matrix homeserver — the whole stack, containerised and wired together:
+After running `matrix-wizard.sh` you'll have a working Matrix homeserver — the whole stack, containerised and wired together:
 
 
 | Service | What it does |
@@ -96,10 +96,10 @@ This project makes the first step easier. It doesn't abstract away the details �
 ```bash
 git clone https://github.com/nordwestt/matrix-easy-deploy-kit
 cd matrix-easy-deploy-kit
-bash setup.sh
+bash matrix-wizard.sh
 ```
 
-`setup.sh` now opens an interactive operator wizard where you can:
+`matrix-wizard.sh` now opens an interactive operator wizard where you can:
 - run first-time setup,
 - install/configure modules,
 - create users/admins,
@@ -109,7 +109,7 @@ bash setup.sh
 If you want to jump straight into first-time setup without the menu:
 
 ```bash
-bash setup.sh --full-setup
+bash matrix-wizard.sh --full-setup
 ```
 
 The wizard will ask you:
@@ -234,7 +234,7 @@ You can disable SSO in the wizard if you only want local Matrix passwords.
 ```
 matrix-easy-deploy/
 │
-├── setup.sh                      # The wizard. Start here.
+├── matrix-wizard.sh                      # The wizard. Start here.
 ├── start.sh                      # Bring everything back up
 ├── stop.sh                       # Bring everything down (data is preserved)
 ├── update.sh                     # Pull latest images and restart
@@ -274,8 +274,8 @@ matrix-easy-deploy/
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
-    ├── sso.sh                    # SSO/OIDC setup helpers (used by setup.sh)
-    ├── setup/                    # setup.sh internals (modularized wizard steps)
+    ├── sso.sh                    # SSO/OIDC setup helpers (used by matrix-wizard.sh)
+    ├── setup/                    # matrix-wizard.sh internals (modularized wizard steps)
     │   ├── banner.sh             # Intro banner output
     │   ├── dependencies.sh       # Dependency checks
     │   ├── config.sh             # Interactive configuration prompts
@@ -347,11 +347,11 @@ docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 ## Re-running setup
 
-If you need to change your domain or reconfigure anything, open the wizard with `bash setup.sh` and select `First setup (full wizard)`, or run the direct command below. It will regenerate all config files and restart services. If you already have data you want to preserve, stop first:
+If you need to change your domain or reconfigure anything, open the wizard with `bash matrix-wizard.sh` and select `First setup (full wizard)`, or run the direct command below. It will regenerate all config files and restart services. If you already have data you want to preserve, stop first:
 
 ```bash
 bash stop.sh
-bash setup.sh --full-setup
+bash matrix-wizard.sh --full-setup
 ```
 
 > Secrets (database password, signing keys, TURN shared secret, LiveKit API key, etc.) are re-generated each time you run setup. If you want to preserve an existing database, back it up first, or manually edit `.env` and the config files instead of re-running setup.
@@ -363,10 +363,10 @@ bash setup.sh --full-setup
 The project is designed to grow. Each optional component (a bridge to Discord, a Telegram bridge, a bot framework) lives in its own module under `modules/`. When a module is ready, you enable it with:
 
 ```bash
-bash setup.sh --module <module-name>
+bash matrix-wizard.sh --module <module-name>
 ```
 
-You can also install modules from the interactive wizard (`bash setup.sh` → `Install/configure module`).
+You can also install modules from the interactive wizard (`bash matrix-wizard.sh` → `Install/configure module`).
 
 This calls the module's own `setup.sh`, which can ask its own questions, pull its own images, and register itself with the rest of the stack without touching the core configuration.
 
@@ -386,7 +386,7 @@ This calls the module's own `setup.sh`, which can ask its own questions, pull it
 | **Jira** (optional) | Configure `jira:` block in `config.yml` |
 
 ```bash
-bash setup.sh --module hookshot
+bash matrix-wizard.sh --module hookshot
 ```
 
 The wizard will ask for a webhook domain (e.g. `hookshot.example.com`), generate the appservice tokens and RSA passkey, register Hookshot with Synapse, add a Caddy site block, and start the container automatically.
@@ -402,7 +402,7 @@ docker logs -f matrix-hookshot
 docker restart matrix-hookshot
 ```
 
-If you installed Hookshot before encrypted-room support was added, run `bash setup.sh --module hookshot` once more to apply the new Redis and Synapse compatibility settings.
+If you installed Hookshot before encrypted-room support was added, run `bash matrix-wizard.sh --module hookshot` once more to apply the new Redis and Synapse compatibility settings.
 
 **Diagnose wiring issues** (checks registration, tokens, network, and does a live Synapse→Hookshot ping):
 ```bash
