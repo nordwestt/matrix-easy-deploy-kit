@@ -262,6 +262,14 @@ matrix-easy-deploy/
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
     ├── sso.sh                    # SSO/OIDC setup helpers (used by setup.sh)
+    ├── setup/                    # setup.sh internals (modularized wizard steps)
+    │   ├── banner.sh             # Intro banner output
+    │   ├── dependencies.sh       # Dependency checks
+    │   ├── config.sh             # Interactive configuration prompts
+    │   ├── generate.sh           # Secrets + template rendering
+    │   ├── runtime.sh            # Docker setup/start + admin bootstrap
+    │   ├── summary.sh            # Final post-setup summary
+    │   └── modules.sh            # --module dispatcher helper
     └── create-admin.sh           # Admin user registration helper
 ```
 
