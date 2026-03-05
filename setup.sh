@@ -88,15 +88,22 @@ run_module_wizard() {
         ((i++))
     done
     echo -e "  ${CYAN}${i})${RESET} Enter module name manually"
-    echo -e "  ${CYAN}0)${RESET} Back"
+    echo -e "  ${CYAN}b)${RESET} Back"
+    echo -e "  ${CYAN}q)${RESET} Quit"
 
     echo
     echo -ne "${BOLD}  Select module${RESET}: "
     local choice
     read -r choice
+    choice="${choice,,}"
 
-    if [[ "$choice" == "0" ]]; then
+    if [[ "$choice" == "b" ]]; then
         return
+    fi
+
+    if [[ "$choice" == "q" ]]; then
+        success "Exiting wizard."
+        exit 0
     fi
 
     if [[ "$choice" =~ ^[0-9]+$ ]]; then
@@ -182,12 +189,14 @@ run_logs_wizard() {
     echo -e "  ${CYAN}6)${RESET} LiveKit"
     echo -e "  ${CYAN}7)${RESET} Coturn"
     echo -e "  ${CYAN}8)${RESET} Hookshot"
-    echo -e "  ${CYAN}0)${RESET} Back"
+    echo -e "  ${CYAN}b)${RESET} Back"
+    echo -e "  ${CYAN}q)${RESET} Quit"
 
     echo
     echo -ne "${BOLD}  Select service${RESET}: "
     local choice container
     read -r choice
+    choice="${choice,,}"
 
     case "$choice" in
         1) container="matrix_synapse" ;;
@@ -198,7 +207,11 @@ run_logs_wizard() {
         6) container="matrix_livekit" ;;
         7) container="matrix_coturn" ;;
         8) container="matrix-hookshot" ;;
-        0) return ;;
+        b) return ;;
+        q)
+            success "Exiting wizard."
+            exit 0
+            ;;
         *)
             warn "Invalid selection."
             pause_screen
@@ -231,7 +244,7 @@ print_wizard_menu() {
     echo -e "  ${CYAN}7)${RESET} Update images + restart"
     echo -e "  ${CYAN}8)${RESET} Show running containers"
     echo -e "  ${CYAN}9)${RESET} Tail service logs"
-    echo -e "  ${CYAN}0)${RESET} Exit"
+    echo -e "  ${CYAN}q)${RESET} Exit"
     echo
 }
 
@@ -241,6 +254,7 @@ run_wizard_hub() {
         echo -ne "${BOLD}  Select an action${RESET}: "
         local choice
         read -r choice
+        choice="${choice,,}"
 
         case "$choice" in
             1)
@@ -276,7 +290,7 @@ run_wizard_hub() {
             9)
                 run_logs_wizard
                 ;;
-            0)
+            q)
                 success "Exiting wizard."
                 return
                 ;;
