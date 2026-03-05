@@ -1,0 +1,11 @@
+homeserverUrl: "https://{{MATRIX_DOMAIN}}"
+accessToken: "{{DRAUPNIR_ACCESS_TOKEN}}"
+managementRoom: "{{DRAUPNIR_MANAGEMENT_ROOM}}"
+protectedRooms: {{DRAUPNIR_PROTECTED_ROOMS_YAML}}
+admins:
+  - "{{DRAUPNIR_ADMIN_MXID}}"
+
+web:
+  synapseHTTPAntispam:
+    enabled: {{DRAUPNIR_ENABLE_SYNAPSE_HTTP_ANTISPAM}}
+    authorization: "{{DRAUPNIR_ANTISPAM_TOKEN}}"

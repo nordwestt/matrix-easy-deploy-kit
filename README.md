@@ -144,15 +144,22 @@ matrix-easy-deploy/
 │   │   └── livekit/
 │   │       ├── livekit.yaml.template
 │   │       └── livekit.yaml      # Generated during setup
-│   └── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
-│       ├── docker-compose.yml    # Hookshot service definition
+│   ├── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
+│   │   ├── docker-compose.yml    # Hookshot service definition
+│   │   ├── setup.sh              # Module setup wizard
+│   │   └── hookshot/
+│   │       ├── config.yml.template
+│   │       ├── config.yml        # Generated during module setup
+│   │       ├── registration.yml.template
+│   │       ├── registration.yml  # Generated during module setup
+│   │       └── passkey.pem       # Generated during module setup (keep private)
+│   └── draupnir/                 # Draupnir moderation bot
+│       ├── docker-compose.yml    # Draupnir service definition
 │       ├── setup.sh              # Module setup wizard
-│       └── hookshot/
-│           ├── config.yml.template
-│           ├── config.yml        # Generated during module setup
-│           ├── registration.yml.template
-│           ├── registration.yml  # Generated during module setup
-│           └── passkey.pem       # Generated during module setup (keep private)
+│       └── draupnir/
+│           └── config/
+│               ├── production.yaml.template
+│               └── production.yaml  # Generated during module setup
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -187,6 +194,7 @@ docker logs -f matrix_redis
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
 docker logs -f matrix-hookshot  # if hookshot module is installed
+docker logs -f matrix-draupnir  # if draupnir module is installed
 ```
 
 **Create a user account (interactive)**
@@ -284,6 +292,26 @@ bash scripts/hookshot-check.sh
 - Room commands (`!hookshot ...`) require an unencrypted room unless Hookshot encryption support is configured.
 - Give `@hookshot` enough power in the room (typically Moderator / PL50) so it can write room state.
 - In DMs, `help` may look sparse if you have only webhooks/feeds enabled and no GitHub/GitLab/Jira auth features configured.
+
+#### `draupnir` — Moderation bot
+
+[Draupnir](https://github.com/the-draupnir-project/Draupnir) is the actively maintained successor to Mjolnir for Matrix moderation.
+
+```bash
+bash setup.sh --module draupnir
+```
+
+The wizard asks for a bot MXID, bot access token, management room, and admin MXID, then renders:
+
+- `modules/draupnir/draupnir/config/production.yaml`
+
+Optional during setup: it can also add a `synapse-http-antispam` module block to Synapse (`homeserver.yaml`). This is disabled by default because the Python module must be installed inside the Synapse environment first.
+
+**After setup:**
+```bash
+docker logs -f matrix-draupnir
+docker restart matrix-draupnir
+```
 
 More modules coming. Watch this space.
 

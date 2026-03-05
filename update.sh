@@ -29,6 +29,10 @@ if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/c
     docker pull halfshot/matrix-hookshot:latest
 fi
 
+if [[ -n "${DRAUPNIR_BOT_MXID:-}" && -f "${SCRIPT_DIR}/modules/draupnir/draupnir/config/production.yaml" ]]; then
+    docker pull gnuxie/draupnir:latest
+fi
+
 info "Restarting services…"
 bash "${SCRIPT_DIR}/start.sh"
 

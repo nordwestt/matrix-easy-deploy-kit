@@ -24,6 +24,12 @@ if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/c
     (cd "${SCRIPT_DIR}/modules/hookshot" && "${DOCKER_COMPOSE[@]}" down)
 fi
 
+# Stop Draupnir if it was installed as a module
+if [[ -n "${DRAUPNIR_BOT_MXID:-}" && -f "${SCRIPT_DIR}/modules/draupnir/draupnir/config/production.yaml" ]]; then
+    info "Stopping Draupnir…"
+    (cd "${SCRIPT_DIR}/modules/draupnir" && "${DOCKER_COMPOSE[@]}" down)
+fi
+
 info "Stopping calls services (coturn + LiveKit)…"
 (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" down)
 
