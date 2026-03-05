@@ -108,8 +108,10 @@ The wizard will ask you:
 5. Whether to enable federation
 6. Whether to enable SSO (OIDC/OAuth2)
 7. If SSO is enabled: provider name, issuer URL, client ID, and client secret
-8. Whether to install Element Web, and on which domain
-9. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
+8. If SSO is enabled: whether unknown SSO users can auto-register
+9. If SSO is enabled: optional OIDC claim allowlist (for org/group/domain control)
+10. Whether to install Element Web, and on which domain
+11. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
 
 Everything else — database passwords, signing keys, TURN secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
 
@@ -122,6 +124,8 @@ During setup (default: enabled), provide:
 - OIDC issuer URL (Google: `https://accounts.google.com/`)
 - OIDC client ID
 - OIDC client secret
+- Whether SSO can auto-register unknown users (recommended: **No** for private servers)
+- Optional claim allowlist (recommended) to restrict who can sign in
 
 When creating the OIDC app in your identity provider, set the redirect/callback URL to:
 
@@ -133,6 +137,24 @@ Example for Google:
 - Create an OAuth client in Google Cloud Console
 - Add the callback URL above as an authorized redirect URI
 - Paste client ID + client secret into the setup wizard
+
+### Restrict who can sign in (important)
+
+To avoid “any Google user can join”, use both controls in the setup wizard:
+
+1. Set **Allow NEW users to auto-register via SSO?** to `No`
+  - Result: only users you pre-create on Synapse can log in via SSO.
+2. Enable **Restrict SSO to specific OIDC claim values**
+  - Result: only identities with matching claims are accepted by Synapse (`attribute_requirements`).
+
+Common examples:
+
+- **Google Workspace org only**: claim `hd`, allowed value `yourcompany.com`
+- **Group allowlist**: claim `groups`, allowed value(s) like `matrix-users,admins`
+
+Notes:
+- Group-based restrictions only work if your IdP actually includes group claims in OIDC userinfo/token.
+- Claim matching is exact (or one-of exact values), so use the exact value your provider emits.
 
 You can disable SSO in the wizard if you only want local Matrix passwords.
 

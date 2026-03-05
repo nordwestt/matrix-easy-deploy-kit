@@ -197,6 +197,43 @@ gather_config() {
         if [[ -z "$OIDC_IDP_ID" ]]; then
             OIDC_IDP_ID="oidc"
         fi
+
+        ask_yn OIDC_ENABLE_AUTO_REGISTRATION_INPUT \
+            "Allow NEW users to auto-register via SSO?" \
+            "n"
+        if [[ "$OIDC_ENABLE_AUTO_REGISTRATION_INPUT" == "y" ]]; then
+            OIDC_ENABLE_AUTO_REGISTRATION="true"
+        else
+            OIDC_ENABLE_AUTO_REGISTRATION="false"
+        fi
+
+        ask_yn OIDC_RESTRICT_BY_CLAIMS_INPUT \
+            "Restrict SSO to specific OIDC claim values? (recommended)" \
+            "y"
+        if [[ "$OIDC_RESTRICT_BY_CLAIMS_INPUT" == "y" ]]; then
+            ask OIDC_RESTRICT_CLAIM \
+                "OIDC claim to match (e.g. hd, groups, email)" \
+                "hd"
+            while [[ -z "$OIDC_RESTRICT_CLAIM" ]]; do
+                warn "Claim name is required when claim restriction is enabled."
+                ask OIDC_RESTRICT_CLAIM \
+                    "OIDC claim to match (e.g. hd, groups, email)" \
+                    "hd"
+            done
+
+            ask OIDC_RESTRICT_VALUES \
+                "Allowed claim value(s), comma-separated" \
+                ""
+            while [[ -z "$OIDC_RESTRICT_VALUES" ]]; do
+                warn "Provide at least one allowed claim value."
+                ask OIDC_RESTRICT_VALUES \
+                    "Allowed claim value(s), comma-separated" \
+                    ""
+            done
+        else
+            OIDC_RESTRICT_CLAIM=""
+            OIDC_RESTRICT_VALUES=""
+        fi
     else
         ENABLE_SSO="false"
         OIDC_PROVIDER_NAME=""
@@ -204,6 +241,9 @@ gather_config() {
         OIDC_CLIENT_ID=""
         OIDC_CLIENT_SECRET=""
         OIDC_IDP_ID=""
+        OIDC_ENABLE_AUTO_REGISTRATION="false"
+        OIDC_RESTRICT_CLAIM=""
+        OIDC_RESTRICT_VALUES=""
     fi
 
     ask_yn INSTALL_ELEMENT_INPUT \
@@ -249,6 +289,12 @@ gather_config() {
     echo -e "  Federation      : ${CYAN}${ENABLE_FEDERATION_INPUT}${RESET}"
     if [[ "$ENABLE_SSO" == "true" ]]; then
         echo -e "  SSO (OIDC)      : ${CYAN}enabled${RESET} (${OIDC_PROVIDER_NAME})"
+        echo -e "  SSO auto-signup : ${CYAN}${OIDC_ENABLE_AUTO_REGISTRATION}${RESET}"
+        if [[ -n "$OIDC_RESTRICT_CLAIM" ]]; then
+            echo -e "  SSO allowlist   : ${CYAN}${OIDC_RESTRICT_CLAIM}${RESET} in (${OIDC_RESTRICT_VALUES})"
+        else
+            echo -e "  SSO allowlist   : ${CYAN}none${RESET}"
+        fi
     else
         echo -e "  SSO (OIDC)      : ${CYAN}disabled${RESET}"
     fi
@@ -296,24 +342,45 @@ generate_config() {
             OIDC_ISSUER_URL="$OIDC_ISSUER_URL" \
             OIDC_CLIENT_ID="$OIDC_CLIENT_ID" \
             OIDC_CLIENT_SECRET="$OIDC_CLIENT_SECRET" \
+            OIDC_ENABLE_AUTO_REGISTRATION="$OIDC_ENABLE_AUTO_REGISTRATION" \
+            OIDC_RESTRICT_CLAIM="$OIDC_RESTRICT_CLAIM" \
+            OIDC_RESTRICT_VALUES="$OIDC_RESTRICT_VALUES" \
             python3 - <<'PY'
 import json
 import os
 
-providers = [{
+provider = {
     "idp_id": os.environ["OIDC_IDP_ID"] or "oidc",
     "idp_name": os.environ["OIDC_PROVIDER_NAME"],
     "discover": True,
     "issuer": os.environ["OIDC_ISSUER_URL"],
     "client_id": os.environ["OIDC_CLIENT_ID"],
     "client_secret": os.environ["OIDC_CLIENT_SECRET"],
+    "enable_registration": os.environ.get("OIDC_ENABLE_AUTO_REGISTRATION", "false") == "true",
     "scopes": ["openid", "profile", "email"],
     "user_mapping_provider": {
         "config": {
             "subject_claim": "sub"
         }
     }
-}]
+}
+
+restrict_claim = os.environ.get("OIDC_RESTRICT_CLAIM", "").strip()
+restrict_values_raw = os.environ.get("OIDC_RESTRICT_VALUES", "")
+if restrict_claim:
+    allowed_values = [value.strip() for value in restrict_values_raw.split(",") if value.strip()]
+    if len(allowed_values) == 1:
+        provider["attribute_requirements"] = [{
+            "attribute": restrict_claim,
+            "value": allowed_values[0],
+        }]
+    elif len(allowed_values) > 1:
+        provider["attribute_requirements"] = [{
+            "attribute": restrict_claim,
+            "one_of": allowed_values,
+        }]
+
+providers = [provider]
 print(json.dumps(providers, separators=(",", ":")))
 PY
         )"
@@ -364,6 +431,9 @@ OIDC_ISSUER_URL=${OIDC_ISSUER_URL}
 OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
 OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
 OIDC_IDP_ID=${OIDC_IDP_ID}
+OIDC_ENABLE_AUTO_REGISTRATION=${OIDC_ENABLE_AUTO_REGISTRATION}
+OIDC_RESTRICT_CLAIM=${OIDC_RESTRICT_CLAIM}
+OIDC_RESTRICT_VALUES=${OIDC_RESTRICT_VALUES}
 INSTALL_ELEMENT=${INSTALL_ELEMENT}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 
