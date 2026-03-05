@@ -101,6 +101,7 @@ LIVEKIT_SECRET=${LIVEKIT_SECRET}
 SHARED_REDIS_HOST=${SHARED_REDIS_HOST}
 SHARED_REDIS_PORT=${SHARED_REDIS_PORT}
 SHARED_REDIS_URL=${SHARED_REDIS_URL}
+CADDY_MATRIX_HOSTS=${CADDY_MATRIX_HOSTS}
 EOF
 
     info "Rendering Caddyfile…"
@@ -114,6 +115,9 @@ EOF
         "$_caddyfile_template" \
         "${SCRIPT_DIR}/caddy/Caddyfile" \
         "$vars_file"
+    if grep -q '{{[A-Z_][A-Z0-9_]*}}' "${SCRIPT_DIR}/caddy/Caddyfile"; then
+        die "Caddyfile still contains unresolved template placeholders. Aborting to avoid booting broken Caddy config."
+    fi
     success "caddy/Caddyfile written."
 
     info "Rendering homeserver.yaml…"
