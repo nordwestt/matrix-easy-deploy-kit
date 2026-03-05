@@ -67,6 +67,8 @@ After running `setup.sh` you'll have a working Matrix homeserver — the whole s
 
 Everything runs in Docker Compose. Caddy manages your TLS certificate without you lifting a finger.
 
+SSO via OIDC (Google and other compatible providers) is supported by the setup wizard.
+
 ---
 
 ## Why does this exist?
@@ -104,8 +106,13 @@ The wizard will ask you:
 3. **Admin username and password**
 4. Whether to allow public registration
 5. Whether to enable federation
-6. Whether to install Element Web, and on which domain
-7. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
+6. Whether to enable SSO (OIDC/OAuth2)
+7. If SSO is enabled: one or more providers (loop: add provider, then optionally add another)
+8. For each provider: name, issuer URL, client ID, client secret
+9. For each provider: whether unknown users can auto-register via that provider
+10. For each provider: optional OIDC claim allowlist (org/group/domain control)
+11. Whether to install Element Web, and on which domain
+12. **Your LiveKit domain** — something like `livekit.example.com` (defaults to `livekit.<basedomain>`)
 
 ### Important: `MATRIX_DOMAIN` vs `SERVER_NAME`
 
@@ -117,6 +124,95 @@ If these are different, federation discovery still starts from `SERVER_NAME`, so
 This project now generates Caddy config that serves Matrix endpoints on both hostnames automatically.
 
 Everything else — database passwords, signing keys, TURN secrets, LiveKit API keys, internal secrets — is generated automatically. The wizard also auto-detects your server's public IP for coturn's NAT traversal configuration.
+
+## SSO (OIDC / OAuth2)
+
+This project configures Synapse `oidc_providers`, which works with Google and other OIDC-compatible identity providers.
+
+During setup (default: enabled), provide:
+- Provider display name (for login UI)
+- OIDC issuer URL (Google: `https://accounts.google.com/`)
+- OIDC client ID
+- OIDC client secret
+- Whether SSO can auto-register unknown users (default: **Yes** for frictionless onboarding)
+- Optional claim allowlist (default: off; enable when you need tighter control)
+
+You can configure multiple providers in one run (for example Google + Okta + Authentik).
+
+When creating the OIDC app in your identity provider, set the redirect/callback URL to:
+
+```text
+https://<your-matrix-domain>/_synapse/client/oidc/callback
+```
+
+Example for Google:
+- Create an OAuth client in Google Cloud Console
+- Add the callback URL above as an authorized redirect URI
+- Paste client ID + client secret into the setup wizard
+
+### Restrict who can sign in (important)
+
+To avoid “any Google user can join”, use one or both controls in the setup wizard:
+
+1. Enable **Restrict SSO to specific OIDC claim values**
+  - Result: only identities with matching claims are accepted by Synapse (`attribute_requirements`).
+2. Set **Allow NEW users to auto-register via SSO?** to `No` (strict mode)
+  - Result: only users you pre-create on Synapse can log in via SSO.
+
+Common examples:
+
+- **Google Workspace org only**: claim `hd`, allowed value `yourcompany.com`
+- **Group allowlist**: claim `groups`, allowed value(s) like `matrix-users,admins`
+
+How matching works in this setup:
+- If you enter one allowed value, Synapse gets `value` matching.
+- If you enter multiple comma-separated values, Synapse gets `one_of` matching.
+- Matching is exact.
+
+Generated behavior (conceptually):
+- claim=`hd`, values=`acme.com` → `attribute_requirements: [{attribute: hd, value: acme.com}]`
+- claim=`groups`, values=`matrix-users,admins` → `attribute_requirements: [{attribute: groups, one_of: [matrix-users, admins]}]`
+
+### OIDC claim examples (what they do)
+
+- `hd` (Google Workspace hosted domain)
+  - Typical value: `yourcompany.com`
+  - Use when: you only want users from your Google Workspace domain.
+- `groups` (group membership; provider-specific)
+  - Typical values: `matrix-users`, `admins`
+  - Use when: you want role/group-based access control.
+- `email`
+  - Typical value: `alice@yourcompany.com`
+  - Use when: you want a strict allowlist for specific email addresses.
+- `tid` (Microsoft Entra tenant ID)
+  - Typical value: tenant UUID
+  - Use when: you only want users from one Entra tenant.
+- `preferred_username` (provider-specific username/login)
+  - Typical value: `alice`
+  - Use when: provider issues stable usernames and you want to allow specific ones.
+
+Notes:
+- Group-based restrictions only work if your IdP actually includes group claims in OIDC userinfo/token.
+- Claim matching is exact (or one-of exact values), so use the exact value your provider emits.
+- Some claims (especially `groups`) may require extra scopes/provider config. This setup requests `openid profile email` by default.
+- If your IdP already restricts users at the provider level (for example, Google OAuth app set to your org only), the default auto-registration flow is usually a good UX/security balance.
+
+### Pre-creating approved users (what this means)
+
+Pre-creating means creating local Matrix accounts in advance (for approved people only), then letting SSO users log into those existing accounts.
+
+Advantages:
+- Prevents surprise account creation from any user who can pass IdP login.
+- Gives tighter onboarding control (who gets access and when).
+- Lets you combine IdP checks + explicit local account approval for defense in depth.
+
+Use the helper to create approved accounts:
+
+```bash
+bash scripts/create-user.sh
+```
+
+You can disable SSO in the wizard if you only want local Matrix passwords.
 
 ---
 
@@ -165,6 +261,7 @@ matrix-easy-deploy/
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
+    ├── sso.sh                    # SSO/OIDC setup helpers (used by setup.sh)
     └── create-admin.sh           # Admin user registration helper
 ```
 
@@ -357,6 +454,7 @@ docker inspect matrix_postgres | grep -A 5 Health
 
 - Your `.env` file contains database credentials, TURN secrets, LiveKit API keys, and other internal secrets. It's in `.gitignore` — keep it that way.
 - Public registration is off by default. Think carefully before turning it on; an open Matrix server is a spam target.
+- OIDC SSO is on by default in the wizard. If you don't want external IdPs, disable SSO during setup.
 - Federation is on by default. If you want a private, islands-only server, disable it during setup.
 - The Synapse admin API (`/_synapse/admin/`) is accessible via Caddy. It requires a valid admin access token to use — the setup just exposes the routing; auth is Synapse's business.
 - coturn runs with `network_mode: host` so it can bind UDP relay ports directly. Ensure your firewall allows:

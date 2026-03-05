@@ -15,6 +15,8 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib.sh
 source "${SCRIPT_DIR}/scripts/lib.sh"
+# shellcheck source=scripts/sso.sh
+source "${SCRIPT_DIR}/scripts/sso.sh"
 
 IFS=' ' read -ra DOCKER_COMPOSE <<< "$(docker_compose_cmd)"
 DEPLOY_ENV="${SCRIPT_DIR}/.env"
@@ -164,6 +166,8 @@ gather_config() {
         ALLOW_PUBLIC_ROOMS_FEDERATION="false"
     fi
 
+    gather_sso_config
+
     ask_yn INSTALL_ELEMENT_INPUT \
         "Install Element web client? (skip if you already have a client)" \
         "y"
@@ -205,6 +209,12 @@ gather_config() {
     echo -e "  Admin user      : ${CYAN}${ADMIN_USERNAME}${RESET}"
     echo -e "  Public reg.     : ${CYAN}${ENABLE_REGISTRATION}${RESET}"
     echo -e "  Federation      : ${CYAN}${ENABLE_FEDERATION_INPUT}${RESET}"
+    if [[ "$ENABLE_SSO" == "true" ]]; then
+        echo -e "  SSO (OIDC)      : ${CYAN}enabled${RESET} (${OIDC_PROVIDER_COUNT} provider(s))"
+        echo -e "  Providers       : ${CYAN}${OIDC_PROVIDER_NAMES}${RESET}"
+    else
+        echo -e "  SSO (OIDC)      : ${CYAN}disabled${RESET}"
+    fi
     if [[ "$INSTALL_ELEMENT" == "true" ]]; then
         echo -e "  Element client  : ${CYAN}${ELEMENT_DOMAIN}${RESET}"
     else
@@ -244,6 +254,11 @@ generate_config() {
     COTURN_SECRET="$(generate_secret)"
     LIVEKIT_KEY="matrix"
     LIVEKIT_SECRET="$(generate_secret)"
+
+    if [[ "$ENABLE_SSO" != "true" || -z "${OIDC_PROVIDERS_JSON:-}" ]]; then
+        OIDC_PROVIDERS_JSON="[]"
+        OIDC_PROVIDER_COUNT="0"
+    fi
 
     # Detect the server's public IP address — required by coturn for NAT traversal.
     info "Detecting public IP address…"
@@ -290,6 +305,10 @@ MACAROON_SECRET_KEY=${MACAROON_SECRET_KEY}
 FORM_SECRET=${FORM_SECRET}
 
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
+ENABLE_SSO=${ENABLE_SSO}
+OIDC_PROVIDER_COUNT=${OIDC_PROVIDER_COUNT}
+OIDC_PROVIDER_NAMES=${OIDC_PROVIDER_NAMES}
+OIDC_PROVIDERS_JSON=${OIDC_PROVIDERS_JSON}
 INSTALL_ELEMENT=${INSTALL_ELEMENT}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 
@@ -321,6 +340,7 @@ FORM_SECRET=${FORM_SECRET}
 ENABLE_REGISTRATION=${ENABLE_REGISTRATION}
 FEDERATION_WHITELIST=${FEDERATION_WHITELIST}
 ALLOW_PUBLIC_ROOMS_FEDERATION=${ALLOW_PUBLIC_ROOMS_FEDERATION}
+OIDC_PROVIDERS_JSON=${OIDC_PROVIDERS_JSON}
 ELEMENT_DOMAIN=${ELEMENT_DOMAIN}
 SERVER_IP=${SERVER_IP}
 COTURN_SECRET=${COTURN_SECRET}

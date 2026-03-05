@@ -85,6 +85,11 @@ enable_registration: {{ENABLE_REGISTRATION}}
 #   smtp_port: 587
 #   notif_from: "Matrix <matrix@example.com>"
 
+# Single Sign-On (OIDC/OAuth2): supports Google and other compatible providers.
+# setup.sh renders this as [] when SSO is disabled.
+# Provider redirect URI to configure upstream: https://<matrix-domain>/_synapse/client/oidc/callback
+oidc_providers: {{OIDC_PROVIDERS_JSON}}
+
 # ----------------------------------------------------------------------------
 # Federation
 # ----------------------------------------------------------------------------
