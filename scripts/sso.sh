@@ -136,7 +136,7 @@ gather_sso_config() {
 
         ask_yn auto_registration_input \
             "Allow NEW users to auto-register via this SSO provider?" \
-            "n"
+            "y"
         if [[ "$auto_registration_input" == "y" ]]; then
             auto_registration="true"
         else
@@ -145,7 +145,7 @@ gather_sso_config() {
 
         ask_yn restrict_input \
             "Restrict this provider to specific OIDC claim values? (recommended)" \
-            "y"
+            "n"
         if [[ "$restrict_input" == "y" ]]; then
             ask restrict_claim \
                 "OIDC claim to match (e.g. hd, groups, email)" \

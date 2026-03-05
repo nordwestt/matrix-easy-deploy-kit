@@ -125,8 +125,8 @@ During setup (default: enabled), provide:
 - OIDC issuer URL (Google: `https://accounts.google.com/`)
 - OIDC client ID
 - OIDC client secret
-- Whether SSO can auto-register unknown users (recommended: **No** for private servers)
-- Optional claim allowlist (recommended) to restrict who can sign in
+- Whether SSO can auto-register unknown users (default: **Yes** for frictionless onboarding)
+- Optional claim allowlist (default: off; enable when you need tighter control)
 
 You can configure multiple providers in one run (for example Google + Okta + Authentik).
 
@@ -143,21 +143,50 @@ Example for Google:
 
 ### Restrict who can sign in (important)
 
-To avoid “any Google user can join”, use both controls in the setup wizard:
+To avoid “any Google user can join”, use one or both controls in the setup wizard:
 
-1. Set **Allow NEW users to auto-register via SSO?** to `No`
-  - Result: only users you pre-create on Synapse can log in via SSO.
-2. Enable **Restrict SSO to specific OIDC claim values**
+1. Enable **Restrict SSO to specific OIDC claim values**
   - Result: only identities with matching claims are accepted by Synapse (`attribute_requirements`).
+2. Set **Allow NEW users to auto-register via SSO?** to `No` (strict mode)
+  - Result: only users you pre-create on Synapse can log in via SSO.
 
 Common examples:
 
 - **Google Workspace org only**: claim `hd`, allowed value `yourcompany.com`
 - **Group allowlist**: claim `groups`, allowed value(s) like `matrix-users,admins`
 
+How matching works in this setup:
+- If you enter one allowed value, Synapse gets `value` matching.
+- If you enter multiple comma-separated values, Synapse gets `one_of` matching.
+- Matching is exact.
+
+Generated behavior (conceptually):
+- claim=`hd`, values=`acme.com` → `attribute_requirements: [{attribute: hd, value: acme.com}]`
+- claim=`groups`, values=`matrix-users,admins` → `attribute_requirements: [{attribute: groups, one_of: [matrix-users, admins]}]`
+
+### OIDC claim examples (what they do)
+
+- `hd` (Google Workspace hosted domain)
+  - Typical value: `yourcompany.com`
+  - Use when: you only want users from your Google Workspace domain.
+- `groups` (group membership; provider-specific)
+  - Typical values: `matrix-users`, `admins`
+  - Use when: you want role/group-based access control.
+- `email`
+  - Typical value: `alice@yourcompany.com`
+  - Use when: you want a strict allowlist for specific email addresses.
+- `tid` (Microsoft Entra tenant ID)
+  - Typical value: tenant UUID
+  - Use when: you only want users from one Entra tenant.
+- `preferred_username` (provider-specific username/login)
+  - Typical value: `alice`
+  - Use when: provider issues stable usernames and you want to allow specific ones.
+
 Notes:
 - Group-based restrictions only work if your IdP actually includes group claims in OIDC userinfo/token.
 - Claim matching is exact (or one-of exact values), so use the exact value your provider emits.
+- Some claims (especially `groups`) may require extra scopes/provider config. This setup requests `openid profile email` by default.
+- If your IdP already restricts users at the provider level (for example, Google OAuth app set to your org only), the default auto-registration flow is usually a good UX/security balance.
 
 ### Pre-creating approved users (what this means)
 
@@ -223,7 +252,7 @@ matrix-easy-deploy/
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
-  ├── sso.sh                    # SSO/OIDC setup helpers (used by setup.sh)
+    ├── sso.sh                    # SSO/OIDC setup helpers (used by setup.sh)
     └── create-admin.sh           # Admin user registration helper
 ```
 
