@@ -492,6 +492,16 @@ docker inspect matrix_postgres | grep -A 5 Health
 
 Issues, fixes, and module contributions are welcome. If you're adding a new module, follow the pattern in `modules/core/` — a `docker-compose.yml` for services and a `setup.sh` that sources `scripts/lib.sh` for prompts and helpers.
 
+## Releasing
+
+Automated multi-channel releasing is configured via GitHub Actions.
+
+- Push to the `release` branch to trigger a release run.
+- The pipeline publishes GitHub Release assets and GHCR images by default.
+- Docker Hub and Homebrew publishing are enabled automatically when their repository secrets are configured.
+
+See `RELEASING.md` for setup details and required secrets.
+
 ---
 
 ## Licence
