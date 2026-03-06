@@ -66,7 +66,17 @@ After running `matrix-wizard.sh` you'll have a working Matrix homeserver — the
 
 Everything runs in Docker Compose. Caddy manages your TLS certificate without you lifting a finger.
 
-SSO via OIDC (Google and other compatible providers) is supported by the setup wizard.
+> ### 🔐 Bring your own login: Google, Microsoft, Github and more
+>
+> <table align="center">
+>   <tr>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="28"/></td>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" width="28"/></td>
+><td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Github_logo_svg.svg" alt="GitHub" width="28"/></td>
+>   </tr>
+> </table>
+>
+> The setup wizard supports **OIDC/OAuth2 SSO** out of the box — so users can sign in with **Google**, **Microsoft Entra ID**, or any other **OIDC-compatible provider**.
 
 ---
 
