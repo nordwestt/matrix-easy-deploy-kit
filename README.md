@@ -1,8 +1,8 @@
-# 💊 MED-kit (Matrix Easy Deploy)
+# 💊 MED-kit: The cure to your matrix deployment headaches
 
-An easy way to deploy your own [Matrix](https://matrix.org) homeserver.
+An easy way to deploy your own [Matrix](https://matrix.org) homeserver with comprehenseive and secure defaults.
 
-One script. A few questions. Your own corner of the internet and the ability to federate. 
+One script. A few questions. Your own communication infrastructure and the ability to federate. 
 
 > ### Powered by awesome OSS technologies:
 <table align="center"><tr>
@@ -14,7 +14,10 @@ One script. A few questions. Your own corner of the internet and the ability to 
   <td align="center"><img src="https://livekit.io/favicon.ico" alt="LiveKit" width="40"/></td>
 </tr></table>
 
-### System overview:
+
+---
+
+## ✨ What you get from the wizard
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#2dd4bf', 'edgeLabelBackground':'#134e4a', 'nodeTextColor':'#e0f2f1', 'fontFamily':'Inter', 'nodeBorderRadius':'12px', 'clusterBorderRadius':'16px', 'secondaryColor':'#5eead4', 'tertiaryColor':'#99f6e4', 'lineColor':'#5eead4'}}}%%
@@ -48,10 +51,6 @@ flowchart TD
 
 ```
 
----
-
-## What you get
-
 After running `matrix-wizard.sh` you'll have a working Matrix homeserver — the whole stack, containerised and wired together:
 
 
@@ -73,9 +72,12 @@ SSO via OIDC (Google and other compatible providers) is supported by the setup w
 
 ## Why does this exist?
 
-Self-hosting Matrix is genuinely powerful — you own your conversations, your data, your server rules. But the official documentation assumes you already know what a reverse proxy is and why you might need one, and a fair bit of patience for YAML.
+Self-hosting Matrix is genuinely powerful — your own conversations, data, and server rules. But many "easy" setups expect you to:
+- know what a reverse proxy is
+- have a fair bit of patience for YAML
+- copy environment variables and secrets around
 
-This project makes the first step easier. It doesn't abstract away the details — it sets things up correctly and then gets out of your way, so you can see exactly what's running and why.
+This project makes setup even easier. It doesn't take power away from you — but rather sets things up correctly and then gets out of your way, so you can see exactly what's running and why.
 
 ---
 
