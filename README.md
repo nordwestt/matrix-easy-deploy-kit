@@ -112,6 +112,23 @@ If you want to jump straight into first-time setup without the menu:
 bash matrix-wizard.sh --full-setup
 ```
 
+### Run with Docker (single command)
+
+If you prefer not to install local dependencies, run the wizard from the published container image:
+
+```bash
+mkdir -p ./med-kit
+docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$(pwd)/med-kit:/workspace" \
+  ghcr.io/nordwestt/matrix-easy-deploy-kit:release-latest
+```
+
+What this does:
+- mounts Docker socket so the wizard can create/manage your Matrix containers on the host,
+- mounts `./med-kit` so generated config and `.env` persist on your machine,
+- opens the same interactive `matrix-wizard.sh` flow.
+
 The wizard will ask you:
 
 1. **Your Matrix domain** — something like `matrix.example.com`
