@@ -97,7 +97,7 @@ oidc_providers: {{OIDC_PROVIDERS_JSON}}
 # Set to false to disable federation entirely (private homeserver only).
 federation_domain_whitelist: {{FEDERATION_WHITELIST}}
 
-# Allow joining rooms on other servers
+# Allow any other homeserver to fetch the server’s public rooms directory via federation
 allow_public_rooms_over_federation: {{ALLOW_PUBLIC_ROOMS_FEDERATION}}
 
 # ----------------------------------------------------------------------------
