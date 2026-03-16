@@ -182,16 +182,24 @@ setup_database() {
          END \$\$;" \
         2>&1 | sed 's/^/    /'
 
-    # Create the database (ignore error if already exists)
+    # Drop and recreate the database so we always start fresh
+    info "Dropping existing '${WA_DB_NAME}' database if present…"
     docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" matrix_postgres \
-        psql -U synapse -tc \
-        "SELECT 1 FROM pg_database WHERE datname='${WA_DB_NAME}'" | grep -q 1 \
-        || docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" matrix_postgres \
-           psql -U synapse -c \
-           "CREATE DATABASE ${WA_DB_NAME} OWNER ${WA_DB_USER}
-            ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C'
-            TEMPLATE template0;" \
-           2>&1 | sed 's/^/    /'
+        psql -U synapse -c \
+        "SELECT pg_terminate_backend(pid)
+           FROM pg_stat_activity
+          WHERE datname = '${WA_DB_NAME}' AND pid <> pg_backend_pid();" \
+        2>&1 | sed 's/^/    /'
+    docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" matrix_postgres \
+        psql -U synapse -c \
+        "DROP DATABASE IF EXISTS ${WA_DB_NAME};" \
+        2>&1 | sed 's/^/    /'
+    docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" matrix_postgres \
+        psql -U synapse -c \
+        "CREATE DATABASE ${WA_DB_NAME} OWNER ${WA_DB_USER}
+         ENCODING 'UTF8' LC_COLLATE='C' LC_CTYPE='C'
+         TEMPLATE template0;" \
+        2>&1 | sed 's/^/    /'
 
     # Grant privileges
     docker exec -e PGPASSWORD="${POSTGRES_PASSWORD}" matrix_postgres \
