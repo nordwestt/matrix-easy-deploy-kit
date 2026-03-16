@@ -283,6 +283,8 @@ content = replace_field(content, 'homeserver.address', hs_address)
 
 # appservice address (what Synapse uses to reach the bridge)
 content = replace_field(content, 'appservice.address', as_address)
+# bind to all interfaces so Synapse can reach the bridge across Docker networks
+content = replace_field(content, 'appservice.hostname', '0.0.0.0')
 
 # database
 content = replace_field(content, 'database.type', db_type)
