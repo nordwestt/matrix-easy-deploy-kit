@@ -357,6 +357,7 @@ register_appservice() {
 
     info "Copying registration.yaml to Synapse data directory…"
     cp "$reg_src" "$reg_dest"
+    chmod 644 "$reg_dest"
     success "Copied to ${reg_dest}."
 
     if [[ ! -f "$HOMESERVER_YAML" ]]; then
