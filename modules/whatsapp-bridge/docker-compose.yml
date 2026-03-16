@@ -1,0 +1,23 @@
+services:
+  mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:latest
+    container_name: mautrix-whatsapp
+    restart: unless-stopped
+    # No host-port bindings needed — Synapse reaches the bridge via the shared
+    # Docker network (caddy_net) using the container name.
+    volumes:
+      # config.yaml, registration.yaml, and SQLite fallback all live here
+      - ./whatsapp:/data
+    networks:
+      - caddy_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:29318/_matrix/mau/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+networks:
+  caddy_net:
+    external: true
+    name: caddy_net

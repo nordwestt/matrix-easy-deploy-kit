@@ -24,3 +24,6 @@ Thumbs.db
 
 # Cryptostore data for hookshot (if using the hookshot module)
 modules/hookshot/hookshot/cryptostore
+
+!docker-compose.yml
+!docker-compose.yaml
