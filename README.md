@@ -274,15 +274,21 @@ matrix-easy-deploy/
 │   │   └── livekit/
 │   │       ├── livekit.yaml.template
 │   │       └── livekit.yaml      # Generated during setup
-│   └── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
-│       ├── docker-compose.yml    # Hookshot service definition
+│   ├── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
+│   │   ├── docker-compose.yml    # Hookshot service definition
+│   │   ├── setup.sh              # Module setup wizard
+│   │   └── hookshot/
+│   │       ├── config.yml.template
+│   │       ├── config.yml        # Generated during module setup
+│   │       ├── registration.yml.template
+│   │       ├── registration.yml  # Generated during module setup
+│   │       └── passkey.pem       # Generated during module setup (keep private)
+│   └── whatsapp-bridge/          # WhatsApp bridge (mautrix-whatsapp)
+│       ├── docker-compose.yml    # Bridge service definition
 │       ├── setup.sh              # Module setup wizard
-│       └── hookshot/
-│           ├── config.yml.template
-│           ├── config.yml        # Generated during module setup
-│           ├── registration.yml.template
-│           ├── registration.yml  # Generated during module setup
-│           └── passkey.pem       # Generated during module setup (keep private)
+│       └── whatsapp/
+│           ├── config.yaml       # Generated during module setup
+│           └── registration.yaml # Generated during module setup
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -325,7 +331,8 @@ docker logs -f matrix_postgres
 docker logs -f matrix_redis
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
-docker logs -f matrix-hookshot  # if hookshot module is installed
+docker logs -f matrix-hookshot     # if hookshot module is installed
+docker logs -f mautrix-whatsapp    # if whatsapp-bridge module is installed
 ```
 
 **Create a user account (interactive)**
@@ -425,6 +432,43 @@ bash scripts/hookshot-check.sh
 - Room commands (`!hookshot ...`) require an unencrypted room unless Hookshot encryption support is configured.
 - Give `@hookshot` enough power in the room (typically Moderator / PL50) so it can write room state.
 - In DMs, `help` may look sparse if you have only webhooks/feeds enabled and no GitHub/GitLab/Jira auth features configured.
+
+#### `whatsapp-bridge` — Bridge Matrix to WhatsApp
+
+[mautrix-whatsapp](https://github.com/mautrix/whatsapp) lets you send and receive WhatsApp messages directly from your Matrix client. Your WhatsApp account is linked by scanning a QR code — no third-party service involved, everything runs on your own server.
+
+| Feature | Notes |
+|---------|-------|
+| **1:1 chats** | All personal WhatsApp conversations appear as Matrix rooms |
+| **Group chats** | WhatsApp groups bridged as Matrix rooms |
+| **Media** | Images, video, voice messages, documents — all bridged both ways |
+| **Relay mode** | Optional — lets non-logged-in users send via a shared relaybot |
+| **PostgreSQL** | Dedicated database created automatically during setup |
+
+```bash
+bash matrix-wizard.sh --module whatsapp-bridge
+```
+
+The wizard will ask for your Matrix admin username and relay mode preference, then handle everything: database creation, config generation, appservice registration with Synapse, and starting the container.
+
+**After setup:**
+1. Open a DM with `@whatsappbot:<your-server>` in Element
+2. Send `login`
+3. Scan the QR code in WhatsApp → Linked Devices → Link a Device
+4. Your chats will start appearing as Matrix rooms
+
+```bash
+# View logs
+docker logs -f mautrix-whatsapp
+
+# Re-link after logging out of WhatsApp
+# (DM @whatsappbot and send 'login' again)
+
+# Restart
+docker restart mautrix-whatsapp
+```
+
+> **Note:** Your WhatsApp mobile app must stay active. If you factory-reset your phone or uninstall WhatsApp, re-run `login` in the bridge DM to re-link.
 
 More modules coming. Watch this space.
 
