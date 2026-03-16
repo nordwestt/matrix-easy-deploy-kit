@@ -280,23 +280,37 @@ content = replace_field(content, 'appservice.address', as_address)
 content = replace_field(content, 'database.type', db_type)
 content = replace_field(content, 'database.uri',  db_uri)
 
-# permissions block — replace the whole permissions section
-# Build the replacement block
-relay_line = '    "*": relay' if relay_enabled else '    # "*": relay  # uncomment to enable relay mode'
-permissions_block = (
-    "permissions:\n"
-    f'{relay_line}\n'
-    f'    "{server_name}": user\n'
-    f'    "@{admin_user}:{server_name}": admin'
-)
-# Replace existing permissions block (multi-line, ends at next non-indented key)
-content = re.sub(
-    r'^permissions:.*?(?=^\S)',
-    permissions_block + '\n',
-    content,
-    count=1,
-    flags=re.MULTILINE | re.DOTALL
-)
+# permissions block — find it wherever it lives (top-level or nested under bridge:)
+# Detect the indentation of the permissions: key so we can match its child lines.
+perm_match = re.search(r'^( *)permissions:\s*\n((?:(?! *\S)|\1 [^\n]*\n)*)', content, re.MULTILINE)
+if perm_match:
+    indent = perm_match.group(1)          # e.g. "" or "    "
+    child_indent = indent + "    "        # one level deeper
+    relay_line = f'{child_indent}"*": relay' if relay_enabled else f'{child_indent}# "*": relay  # uncomment to enable relay mode'
+    new_block = (
+        f'{indent}permissions:\n'
+        f'{relay_line}\n'
+        f'{child_indent}"{server_name}": user\n'
+        f'{child_indent}"@{admin_user}:{server_name}": admin\n'
+    )
+    content = content[:perm_match.start()] + new_block + content[perm_match.end():]
+else:
+    # No permissions block at all — append one under bridge: if present, else top-level
+    child_indent = "    "
+    relay_line = f'{child_indent}"*": relay' if relay_enabled else f'{child_indent}# "*": relay  # uncomment to enable relay mode'
+    new_block = (
+        f'  permissions:\n'
+        f'{relay_line}\n'
+        f'{child_indent}"{server_name}": user\n'
+        f'{child_indent}"@{admin_user}:{server_name}": admin\n'
+    )
+    bridge_match = re.search(r'^bridge:\s*$', content, re.MULTILINE)
+    if bridge_match:
+        insert_pos = content.index('\n', bridge_match.start()) + 1
+        content = content[:insert_pos] + new_block + content[insert_pos:]
+    else:
+        content += f'\nbridge:\n{new_block}'
+    print("  [warn] permissions block not found — injected under bridge:", file=sys.stderr)
 
 with open(config_path, 'w') as f:
     f.write(content)
