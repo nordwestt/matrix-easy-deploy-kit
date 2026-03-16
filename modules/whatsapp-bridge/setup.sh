@@ -266,16 +266,48 @@ with open(config_path, 'r') as f:
     content = f.read()
 
 def replace_field(text, key_path, new_value, quote=True):
-    """Replace a YAML scalar field matched by its last key name (handles nested indents)."""
-    key = key_path.split('.')[-1]
+    """Replace a YAML scalar field scoped to its parent section.
+
+    key_path may be 'section.key' or just 'key'.
+    When a section is given, the replacement is constrained to the block
+    starting at that section header, so duplicate key names (e.g. two
+    'address:' fields under different sections) are handled correctly.
+    """
+    parts = key_path.split('.')
+    key   = parts[-1]
     quoted_val = f'"{new_value}"' if quote else new_value
-    # Match lines like:   key: anything  (with optional trailing comment)
-    pattern = rf'^(\s*{re.escape(key)}:)\s*.*$'
-    replacement = rf'\1 {quoted_val}'
-    result, n = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    key_pattern = rf'^(\s*{re.escape(key)}:)\s*.*$'
+
+    if len(parts) == 1:
+        # No section context — replace the first occurrence globally
+        result, n = re.subn(key_pattern, rf'\1 {quoted_val}', text, count=1, flags=re.MULTILINE)
+        if n == 0:
+            print(f"  [warn] Field '{key}' not found in config — skipping.", file=sys.stderr)
+        return result
+
+    section = parts[0]
+    # Find the section header (e.g. "homeserver:" or "  homeserver:")
+    sec_match = re.search(rf'^( *){re.escape(section)}:\s*$', text, re.MULTILINE)
+    if not sec_match:
+        print(f"  [warn] Section '{section}' not found — skipping '{key}'.", file=sys.stderr)
+        return text
+
+    sec_indent = sec_match.group(1)          # indentation of the section header
+    sec_start  = sec_match.end()             # character position after the header line
+
+    # The section body ends when we hit a line at the same or lesser indentation
+    # (that isn't blank/comment). Build an end position.
+    body_end = len(text)
+    for m in re.finditer(r'^(' + re.escape(sec_indent) + r'\S)', text[sec_start:], re.MULTILINE):
+        body_end = sec_start + m.start()
+        break
+
+    section_body = text[sec_start:body_end]
+    new_body, n = re.subn(key_pattern, rf'\1 {quoted_val}', section_body, count=1, flags=re.MULTILINE)
     if n == 0:
-        print(f"  [warn] Field '{key}' not found in config — skipping.", file=sys.stderr)
-    return result
+        print(f"  [warn] Field '{key}' not found in section '{section}' — skipping.", file=sys.stderr)
+        return text
+    return text[:sec_start] + new_body + text[body_end:]
 
 # homeserver section
 content = replace_field(content, 'homeserver.domain',  server_name)
