@@ -386,10 +386,9 @@ EOF
 generate_registration() {
     local reg_file="${BRIDGE_DATA_DIR}/registration.yaml"
 
-    if [[ -f "$reg_file" ]]; then
-        info "registration.yaml already exists — skipping generation."
-        return
-    fi
+    # Always regenerate so registration.yaml stays in sync with config.yaml.
+    # Stale registration files cause Synapse → bridge connectivity failures.
+    [[ -f "$reg_file" ]] && rm -f "$reg_file"
 
     info "Running container to generate registration.yaml…"
     docker run --rm \
