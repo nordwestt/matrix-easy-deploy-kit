@@ -44,8 +44,7 @@ flowchart TD
     Synapse --- LiveKit
     classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
-    class Caddy,Synapse,Element teal;
-    class PostgreSQL,Redis,LiveKit,Coturn mint;
+    class Caddy,Synapse,Element,PostgreSQL,Redis,LiveKit,Coturn mint;
     class User mint;
     style Server stroke:#5eead4,stroke-width:4px,rx:16px,fill:#0f172a;
     style User stroke:#5eead4,stroke-width:2px,rx:12px;
