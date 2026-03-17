@@ -1,8 +1,8 @@
 # 💊 MED-kit: The cure to your matrix deployment headaches
 
-An easy way to deploy your own [Matrix](https://matrix.org) homeserver with comprehenseive and secure defaults.
+An easy way to deploy your own [Matrix](https://matrix.org) homeserver with reasonable defaults.
 
-One script. A few questions. Your own communication infrastructure and the ability to federate. 
+One script. A few questions. Your own communication infrastructure with the ability to federate. 
 
 > ### Powered by awesome OSS technologies:
 <table align="center"><tr>
@@ -76,7 +76,20 @@ Everything runs in Docker Compose. Caddy manages your TLS certificate without yo
 >   </tr>
 > </table>
 >
-> The setup wizard supports **OIDC/OAuth2 SSO** out of the box — so users can sign in with **Google**, **Microsoft Entra ID**, or any other **OIDC-compatible provider**.
+> The setup wizard currently supports **OIDC/OAuth2 SSO** out of the box — so users can sign in with **Google**, **Microsoft Entra ID**, or any other **OIDC-compatible provider**.
+
+> ### 🔗 Bridge to other platforms: Whatsapp, Slack and more
+>
+> <table align="center">
+>   <tr>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/4/4c/WhatsApp_Logo_green.svg" alt="Whatsapp" width="28"/></td>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg" alt="Slack" width="28"/></td>
+>     <td align="center"><img src="https://www.svgrepo.com/show/353655/discord-icon.svg" alt="Discord" width="28"/></td>
+>   </tr>
+> </table>
+>
+> The wizard supports auto-setup of **Whatsapp**, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
+
 
 ---
 
