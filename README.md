@@ -14,6 +14,7 @@ One script. A few questions. Your own communication infrastructure with the abil
   <td align="center"><img src="https://livekit.io/favicon.ico" alt="LiveKit" width="40"/></td>
 </tr></table>
 
+<img width="1206" height="687" alt="image psd(1)" src="https://github.com/user-attachments/assets/822d9d71-cbb4-492b-972f-a6bd65ff4a86" />
 
 ---
 
