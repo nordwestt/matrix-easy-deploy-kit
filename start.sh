@@ -34,4 +34,10 @@ if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/c
     (cd "${SCRIPT_DIR}/modules/hookshot" && "${DOCKER_COMPOSE[@]}" up -d)
 fi
 
+# Start WhatsApp bridge if it was installed as a module
+if [[ -f "${SCRIPT_DIR}/modules/whatsapp-bridge/whatsapp/config.yaml" ]]; then
+    info "Starting WhatsApp bridge…"
+    (cd "${SCRIPT_DIR}/modules/whatsapp-bridge" && "${DOCKER_COMPOSE[@]}" up -d)
+fi
+
 success "All services started."
