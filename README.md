@@ -1,8 +1,8 @@
-# 💊 MED-kit (Matrix Easy Deploy)
+# 💊 MED-kit: The cure to your matrix deployment headaches
 
-An easy way to deploy your own [Matrix](https://matrix.org) homeserver.
+An easy way to deploy your own [Matrix](https://matrix.org) homeserver with reasonable defaults.
 
-One script. A few questions. Your own corner of the internet and the ability to federate. 
+One script. A few questions. Your own communication infrastructure with the ability to federate. 
 
 > ### Powered by awesome OSS technologies:
 <table align="center"><tr>
@@ -14,7 +14,11 @@ One script. A few questions. Your own corner of the internet and the ability to 
   <td align="center"><img src="https://livekit.io/favicon.ico" alt="LiveKit" width="40"/></td>
 </tr></table>
 
-### System overview:
+<img width="1206" height="687" alt="image psd(1)" src="https://github.com/user-attachments/assets/822d9d71-cbb4-492b-972f-a6bd65ff4a86" />
+
+---
+
+## ✨ What you get from the wizard
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#2dd4bf', 'edgeLabelBackground':'#134e4a', 'nodeTextColor':'#e0f2f1', 'fontFamily':'Inter', 'nodeBorderRadius':'12px', 'clusterBorderRadius':'16px', 'secondaryColor':'#5eead4', 'tertiaryColor':'#99f6e4', 'lineColor':'#5eead4'}}}%%
@@ -40,17 +44,12 @@ flowchart TD
     Synapse --- LiveKit
     classDef teal fill:#2dd4bf,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
     classDef mint fill:#134e4a,stroke:#5eead4,stroke-width:2px,color:#e0f2f1,rx:12px;
-    class Caddy,Synapse,Element teal;
-    class PostgreSQL,Redis,LiveKit,Coturn mint;
+    class Caddy,Synapse,Element,PostgreSQL,Redis,LiveKit,Coturn mint;
     class User mint;
     style Server stroke:#5eead4,stroke-width:4px,rx:16px,fill:#0f172a;
     style User stroke:#5eead4,stroke-width:2px,rx:12px;
 
 ```
-
----
-
-## What you get
 
 After running `matrix-wizard.sh` you'll have a working Matrix homeserver — the whole stack, containerised and wired together:
 
@@ -67,15 +66,41 @@ After running `matrix-wizard.sh` you'll have a working Matrix homeserver — the
 
 Everything runs in Docker Compose. Caddy manages your TLS certificate without you lifting a finger.
 
-SSO via OIDC (Google and other compatible providers) is supported by the setup wizard.
+> ### 🔐 Bring your own login: Google, Microsoft, Github and more
+>
+> <table align="center">
+>   <tr>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="28"/></td>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft" width="28"/></td>
+><td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Github_logo_svg.svg" alt="GitHub" width="28"/></td>
+>   </tr>
+> </table>
+>
+> The setup wizard currently supports **OIDC/OAuth2 SSO** out of the box — so users can sign in with **Google**, **Microsoft Entra ID**, or any other **OIDC-compatible provider**.
+
+> ### 🔗 Bridge to other platforms: Whatsapp, Slack and more
+>
+> <table align="center">
+>   <tr>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/4/4c/WhatsApp_Logo_green.svg" alt="Whatsapp" width="28"/></td>
+>     <td align="center"><img src="https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg" alt="Slack" width="28"/></td>
+>     <td align="center"><img src="https://www.svgrepo.com/show/353655/discord-icon.svg" alt="Discord" width="28"/></td>
+>   </tr>
+> </table>
+>
+> The wizard only supports auto-setup of **Whatsapp** as of now, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
+
 
 ---
 
 ## Why does this exist?
 
-Self-hosting Matrix is genuinely powerful — you own your conversations, your data, your server rules. But the official documentation assumes you already know what a reverse proxy is and why you might need one, and a fair bit of patience for YAML.
+Self-hosting Matrix is genuinely powerful — your own conversations, data, and server rules. But many "easy" setups expect you to:
+- know what a reverse proxy is
+- have a fair bit of patience for YAML
+- copy environment variables and secrets around
 
-This project makes the first step easier. It doesn't abstract away the details — it sets things up correctly and then gets out of your way, so you can see exactly what's running and why.
+This project makes setup even easier. It doesn't take power away from you — but rather sets things up correctly and then gets out of your way, so you can see exactly what's running and why.
 
 ---
 
@@ -279,15 +304,21 @@ matrix-easy-deploy/
 │   │   └── livekit/
 │   │       ├── livekit.yaml.template
 │   │       └── livekit.yaml      # Generated during setup
-│   └── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
-│       ├── docker-compose.yml    # Hookshot service definition
+│   ├── hookshot/                 # Hookshot bridge (webhooks, GitHub, feeds…)
+│   │   ├── docker-compose.yml    # Hookshot service definition
+│   │   ├── setup.sh              # Module setup wizard
+│   │   └── hookshot/
+│   │       ├── config.yml.template
+│   │       ├── config.yml        # Generated during module setup
+│   │       ├── registration.yml.template
+│   │       ├── registration.yml  # Generated during module setup
+│   │       └── passkey.pem       # Generated during module setup (keep private)
+│   └── whatsapp-bridge/          # WhatsApp bridge (mautrix-whatsapp)
+│       ├── docker-compose.yml    # Bridge service definition
 │       ├── setup.sh              # Module setup wizard
-│       └── hookshot/
-│           ├── config.yml.template
-│           ├── config.yml        # Generated during module setup
-│           ├── registration.yml.template
-│           ├── registration.yml  # Generated during module setup
-│           └── passkey.pem       # Generated during module setup (keep private)
+│       └── whatsapp/
+│           ├── config.yaml       # Generated during module setup
+│           └── registration.yaml # Generated during module setup
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -330,7 +361,8 @@ docker logs -f matrix_postgres
 docker logs -f matrix_redis
 docker logs -f matrix_livekit
 docker logs -f matrix_coturn
-docker logs -f matrix-hookshot  # if hookshot module is installed
+docker logs -f matrix-hookshot     # if hookshot module is installed
+docker logs -f mautrix-whatsapp    # if whatsapp-bridge module is installed
 ```
 
 **Create a user account (interactive)**
@@ -430,6 +462,42 @@ bash scripts/hookshot-check.sh
 - Room commands (`!hookshot ...`) require an unencrypted room unless Hookshot encryption support is configured.
 - Give `@hookshot` enough power in the room (typically Moderator / PL50) so it can write room state.
 - In DMs, `help` may look sparse if you have only webhooks/feeds enabled and no GitHub/GitLab/Jira auth features configured.
+
+#### `whatsapp-bridge` — Bridge Matrix to WhatsApp
+
+[mautrix-whatsapp](https://github.com/mautrix/whatsapp) lets you send and receive WhatsApp messages directly from your Matrix client. Your WhatsApp account is linked by scanning a QR code — no third-party service involved, everything runs on your own server.
+
+| Feature | Notes |
+|---------|-------|
+| **1:1 chats** | All personal WhatsApp conversations appear as Matrix rooms |
+| **Group chats** | WhatsApp groups bridged as Matrix rooms |
+| **Media** | Images, video, voice messages, documents — all bridged both ways |
+| **PostgreSQL** | Dedicated database created automatically during setup |
+
+```bash
+bash matrix-wizard.sh --module whatsapp-bridge
+```
+
+The wizard will ask for your Matrix admin username and relay mode preference, then handle everything: database creation, config generation, appservice registration with Synapse, and starting the container.
+
+**After setup:**
+1. Open a DM with `@whatsappbot:<your-server>` in Element
+2. Send `login`
+3. Scan the QR code in WhatsApp → Linked Devices → Link a Device
+4. Your chats will start appearing as Matrix rooms
+
+```bash
+# View logs
+docker logs -f mautrix-whatsapp
+
+# Re-link after logging out of WhatsApp
+# (DM @whatsappbot and send 'login' again)
+
+# Restart
+docker restart mautrix-whatsapp
+```
+
+> **Note:** Your WhatsApp mobile app must stay active. If you factory-reset your phone or uninstall WhatsApp, re-run `login` in the bridge DM to re-link.
 
 More modules coming. Watch this space.
 

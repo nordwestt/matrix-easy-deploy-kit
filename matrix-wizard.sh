@@ -60,6 +60,29 @@ run_full_setup() {
     setup_admin
 
     print_summary
+
+    # Offer optional module installation
+    echo
+    echo -e "${BOLD}  Optional modules${RESET}"
+    echo -e "  ─────────────────────────────────────────────────────"
+    echo -e "  Your core Matrix stack is ready. Would you like to install any optional bridges or bots?"
+    echo
+    local _available_modules
+    mapfile -t _available_modules < <(list_available_modules)
+    if [[ ${#_available_modules[@]} -gt 0 ]]; then
+        local i=1
+        for module in "${_available_modules[@]}"; do
+            echo -e "  ${CYAN}${i})${RESET} ${module}"
+            ((i++))
+        done
+    fi
+    echo
+    ask_yn _install_module "Install an optional module now?" "n"
+    if [[ "$_install_module" == "y" ]]; then
+        run_module_wizard
+    else
+        info "Skipping module installation. Run 'bash matrix-wizard.sh' → 'Install/configure module' any time."
+    fi
 }
 
 pause_screen() {
@@ -189,6 +212,7 @@ run_logs_wizard() {
     echo -e "  ${CYAN}6)${RESET} LiveKit"
     echo -e "  ${CYAN}7)${RESET} Coturn"
     echo -e "  ${CYAN}8)${RESET} Hookshot"
+    echo -e "  ${CYAN}9)${RESET} WhatsApp bridge"
     echo -e "  ${CYAN}b)${RESET} Back"
     echo -e "  ${CYAN}q)${RESET} Quit"
 
@@ -207,6 +231,7 @@ run_logs_wizard() {
         6) container="matrix_livekit" ;;
         7) container="matrix_coturn" ;;
         8) container="matrix-hookshot" ;;
+        9) container="mautrix-whatsapp" ;;
         b) return ;;
         q)
             success "Exiting wizard."
