@@ -137,6 +137,23 @@ If you want to jump straight into first-time setup without the menu:
 bash matrix-wizard.sh --full-setup
 ```
 
+### Run with Docker (single command)
+
+If you prefer not to install local dependencies, run the wizard from the published container image:
+
+```bash
+mkdir -p ./med-kit
+docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$(pwd)/med-kit:/workspace" \
+  ghcr.io/nordwestt/matrix-easy-deploy-kit:release-latest
+```
+
+What this does:
+- mounts Docker socket so the wizard can create/manage your Matrix containers on the host,
+- mounts `./med-kit` so generated config and `.env` persist on your machine,
+- opens the same interactive `matrix-wizard.sh` flow.
+
 The wizard will ask you:
 
 1. **Your Matrix domain** — something like `matrix.example.com`
@@ -559,6 +576,16 @@ docker inspect matrix_postgres | grep -A 5 Health
 ## Contributing
 
 Issues, fixes, and module contributions are welcome. If you're adding a new module, follow the pattern in `modules/core/` — a `docker-compose.yml` for services and a `setup.sh` that sources `scripts/lib.sh` for prompts and helpers.
+
+## Releasing
+
+Automated multi-channel releasing is configured via GitHub Actions.
+
+- Push to the `release` branch to trigger a release run.
+- The pipeline publishes GitHub Release assets and GHCR images by default.
+- Docker Hub and Homebrew publishing are enabled automatically when their repository secrets are configured.
+
+See `RELEASING.md` for setup details and required secrets.
 
 ---
 
