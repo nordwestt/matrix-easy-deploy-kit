@@ -455,7 +455,6 @@ bash scripts/hookshot-check.sh
 | **1:1 chats** | All personal WhatsApp conversations appear as Matrix rooms |
 | **Group chats** | WhatsApp groups bridged as Matrix rooms |
 | **Media** | Images, video, voice messages, documents — all bridged both ways |
-| **Relay mode** | Optional — lets non-logged-in users send via a shared relaybot |
 | **PostgreSQL** | Dedicated database created automatically during setup |
 
 ```bash

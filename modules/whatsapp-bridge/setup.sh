@@ -122,11 +122,6 @@ gather_config() {
         ask WA_ADMIN_USERNAME "Matrix admin username" "${ADMIN_USERNAME:-admin}"
     done
 
-    # Relay mode — allows non-logged-in users to send messages via a logged-in relaybot
-    ask_yn WA_RELAY_ENABLED \
-        "Enable relay mode? (lets non-logged-in users send messages via a relaybot)" \
-        "n"
-
     # Database name for the bridge
     ask WA_DB_NAME \
         "PostgreSQL database name for the WhatsApp bridge" \
@@ -138,7 +133,6 @@ gather_config() {
     echo -e "  Homeserver      : ${CYAN}${MATRIX_DOMAIN}${RESET}"
     echo -e "  Server name     : ${CYAN}${SERVER_NAME}${RESET}"
     echo -e "  Bridge admin    : ${CYAN}@${WA_ADMIN_USERNAME}:${SERVER_NAME}${RESET}"
-    echo -e "  Relay mode      : ${CYAN}${WA_RELAY_ENABLED}${RESET}"
     echo -e "  Database name   : ${CYAN}${WA_DB_NAME}${RESET}"
     echo
 
@@ -249,8 +243,7 @@ generate_config() {
         "http://${BRIDGE_CONTAINER}:${BRIDGE_PORT}" \
         "postgres" \
         "$WA_DB_URI" \
-        "$WA_ADMIN_USERNAME" \
-        "$WA_RELAY_ENABLED" <<'PYEOF'
+        "$WA_ADMIN_USERNAME" <<'PYEOF'
 import sys, re
 
 config_path   = sys.argv[1]
@@ -260,7 +253,6 @@ as_address    = sys.argv[4]
 db_type       = sys.argv[5]
 db_uri        = sys.argv[6]
 admin_user    = sys.argv[7]
-relay_enabled = sys.argv[8].lower() == "y"
 
 with open(config_path, 'r') as f:
     content = f.read()
@@ -328,10 +320,8 @@ perm_match = re.search(r'^( *)permissions:\s*\n((?:(?! *\S)|\1 [^\n]*\n)*)', con
 if perm_match:
     indent = perm_match.group(1)          # e.g. "" or "    "
     child_indent = indent + "    "        # one level deeper
-    relay_line = f'{child_indent}"*": relay' if relay_enabled else f'{child_indent}# "*": relay  # uncomment to enable relay mode'
     new_block = (
         f'{indent}permissions:\n'
-        f'{relay_line}\n'
         f'{child_indent}"{server_name}": user\n'
         f'{child_indent}"@{admin_user}:{server_name}": admin\n'
     )
@@ -339,10 +329,8 @@ if perm_match:
 else:
     # No permissions block at all — append one under bridge: if present, else top-level
     child_indent = "    "
-    relay_line = f'{child_indent}"*": relay' if relay_enabled else f'{child_indent}# "*": relay  # uncomment to enable relay mode'
     new_block = (
         f'  permissions:\n'
-        f'{relay_line}\n'
         f'{child_indent}"{server_name}": user\n'
         f'{child_indent}"@{admin_user}:{server_name}": admin\n'
     )
@@ -495,8 +483,7 @@ EOF
     echo -e "  4. Open WhatsApp on your phone → Linked Devices → Link a Device."
     echo -e "  5. Scan the QR code. Your chats will start appearing as Matrix rooms.\n"
     echo -e "  ${BOLD}Bridge admin${RESET}        @${WA_ADMIN_USERNAME}:${SERVER_NAME}"
-    echo -e "  ${BOLD}Bot username${RESET}         @whatsappbot:${SERVER_NAME}"
-    echo -e "  ${BOLD}Relay mode${RESET}           ${WA_RELAY_ENABLED}\n"
+    echo -e "  ${BOLD}Bot username${RESET}         @whatsappbot:${SERVER_NAME}\n"
     echo -e "  ${BOLD}Useful commands${RESET}"
     echo -e "    Logs:     ${CYAN}docker logs -f mautrix-whatsapp${RESET}"
     echo -e "    Restart:  ${CYAN}docker restart mautrix-whatsapp${RESET}"
@@ -528,35 +515,35 @@ main() {
 EOF
     echo -e "${RESET}"
 
-    echo -e "${BOLD}  Step 1 of 7 — Load existing configuration${RESET}"
+    echo -e "${BOLD}  Step 1 of 8 — Load existing configuration${RESET}"
     load_env
 
     echo
-    echo -e "${BOLD}  Step 2 of 7 — Verify server_name consistency${RESET}"
+    echo -e "${BOLD}  Step 2 of 8 — Verify server_name consistency${RESET}"
     verify_server_name
 
     echo
-    echo -e "${BOLD}  Step 3 of 7 — Bridge configuration${RESET}"
+    echo -e "${BOLD}  Step 3 of 8 — Bridge configuration${RESET}"
     gather_config
 
     echo
-    echo -e "${BOLD}  Step 4 of 7 — PostgreSQL database${RESET}"
+    echo -e "${BOLD}  Step 4 of 8 — PostgreSQL database${RESET}"
     setup_database
 
     echo
-    echo -e "${BOLD}  Step 5 of 7 — Generating bridge config${RESET}"
+    echo -e "${BOLD}  Step 5 of 8 — Generating bridge config${RESET}"
     generate_config
 
     echo
-    echo -e "${BOLD}  Step 6 of 7 — Generating appservice registration${RESET}"
+    echo -e "${BOLD}  Step 6 of 8 — Generating appservice registration${RESET}"
     generate_registration
 
     echo
-    echo -e "${BOLD}  Step 6 of 7 — Registering appservice with Synapse${RESET}"
+    echo -e "${BOLD}  Step 7 of 8 — Registering appservice with Synapse${RESET}"
     register_appservice
 
     echo
-    echo -e "${BOLD}  Step 7 of 7 — Starting services${RESET}"
+    echo -e "${BOLD}  Step 8 of 8 — Starting services${RESET}"
     start_services
 
     print_summary
