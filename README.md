@@ -88,7 +88,7 @@ Everything runs in Docker Compose. Caddy manages your TLS certificate without yo
 >   </tr>
 > </table>
 >
-> The wizard supports auto-setup of **Whatsapp**, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
+> The wizard only supports auto-setup of **Whatsapp** as of now, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
 
 
 ---
