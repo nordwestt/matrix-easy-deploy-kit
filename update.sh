@@ -33,6 +33,10 @@ if [[ -f "${SCRIPT_DIR}/modules/whatsapp-bridge/whatsapp/config.yaml" ]]; then
     docker pull dock.mau.dev/mautrix/whatsapp:latest
 fi
 
+if [[ -f "${SCRIPT_DIR}/modules/slack-bridge/slack/config.yaml" ]]; then
+    docker pull dock.mau.dev/mautrix/slack:latest
+fi
+
 info "Restarting services…"
 bash "${SCRIPT_DIR}/start.sh"
 
