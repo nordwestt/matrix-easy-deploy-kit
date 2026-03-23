@@ -1,0 +1,6 @@
+# Ignore backup files
+*.sql.gz
+*.log
+
+# Keep directory but ignore contents
+!.gitkeep

@@ -28,6 +28,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    labels:
+      - "com.matrix-deploy.service=postgres"
+      - "com.matrix-deploy.backupable=true"
 
   synapse:
     image: matrixdotorg/synapse:latest

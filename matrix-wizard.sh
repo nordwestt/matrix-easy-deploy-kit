@@ -83,6 +83,16 @@ run_full_setup() {
     else
         info "Skipping module installation. Run 'bash matrix-wizard.sh' → 'Install/configure module' any time."
     fi
+
+    echo
+    echo -e "${BOLD}  Database backup configuration${RESET}"
+    echo -e "  ─────────────────────────────────────────────────────"
+    ask_yn _setup_backup "Enable automatic PostgreSQL backups?" "n"
+    if [[ "$_setup_backup" == "y" ]]; then
+        configure_backup
+    else
+        info "Skipping backup configuration. Run 'bash matrix-wizard.sh' → 'Backup & Restore' any time."
+    fi
 }
 
 pause_screen() {
@@ -258,6 +268,137 @@ run_logs_wizard() {
     pause_screen
 }
 
+run_backup_wizard() {
+    echo
+    echo -e "${BOLD}  Backup & Restore${RESET}"
+    echo -e "  ─────────────────────────────────────────────────────"
+    echo -e "  ${CYAN}1)${RESET} Create backup now"
+    echo -e "  ${CYAN}2)${RESET} List backups"
+    echo -e "  ${CYAN}3)${RESET} Restore from backup"
+    echo -e "  ${CYAN}4)${RESET} Configure automatic backups"
+    echo -e "  ${CYAN}5)${RESET} View backup schedule status"
+    echo -e "  ${CYAN}b)${RESET} Back"
+    echo -e "  ${CYAN}q)${RESET} Quit"
+
+    echo
+    echo -ne "${BOLD}  Select an action${RESET}: "
+    local choice
+    read -r choice
+    choice="${choice,,}"
+
+    case "$choice" in
+        1)
+            echo
+            bash "${SCRIPT_DIR}/scripts/backup.sh"
+            pause_screen
+            ;;
+        2)
+            echo
+            bash "${SCRIPT_DIR}/scripts/list-backups.sh"
+            pause_screen
+            ;;
+        3)
+            echo
+            bash "${SCRIPT_DIR}/scripts/restore.sh"
+            pause_screen
+            ;;
+        4)
+            configure_backup
+            pause_screen
+            ;;
+        5)
+            echo
+            bash "${SCRIPT_DIR}/scripts/schedule.sh" --status
+            pause_screen
+            ;;
+        b) return ;;
+        q)
+            success "Exiting wizard."
+            exit 0
+            ;;
+        *)
+            warn "Invalid selection."
+            pause_screen
+            ;;
+    esac
+}
+
+configure_backup() {
+    local backup_dir="${SCRIPT_DIR}/backups"
+    local config_file="${backup_dir}/config.env"
+    local config_template="${backup_dir}/config.env.template"
+
+    echo
+    echo -e "${BOLD}  Configure Automatic Backups${RESET}"
+    echo -e "  ─────────────────────────────────────────────────────"
+
+    if [[ ! -f "${config_template}" ]]; then
+        die "Backup config template not found at ${config_template}"
+    fi
+
+    mkdir -p "${backup_dir}"
+
+    if [[ ! -f "${config_file}" ]]; then
+        cp "${config_template}" "${config_file}"
+    fi
+
+    local retention_days
+    local s3_enabled
+    local s3_bucket=""
+    local s3_endpoint=""
+    local s3_region="us-east-1"
+    local s3_access_key=""
+    local s3_secret_key=""
+
+    set -o allexport
+    # shellcheck disable=SC1090
+    source "${config_file}"
+    set +o allexport
+
+    ask retention_days "Retention days (keep backups for N days)" "${retention_days:-7}"
+    retention_days="${retention_days:-7}"
+
+    echo
+    ask_yn s3_enabled "Enable S3 backup?" "n"
+    s3_enabled=$([[ "$s3_enabled" == "y" ]] && echo "true" || echo "false")
+
+    if [[ "${s3_enabled}" == "true" ]]; then
+        echo
+        ask s3_bucket "S3 bucket name" "${s3_bucket}"
+        ask s3_endpoint "S3 endpoint (leave empty for AWS, e.g. https://s3.example.com)" "${s3_endpoint}"
+        ask s3_region "S3 region" "${s3_region}"
+        echo
+        ask s3_access_key "S3 access key" "${s3_access_key}"
+        ask s3_secret_key "S3 secret key" "${s3_secret_key}"
+    fi
+
+    cat > "${config_file}" << EOF
+BACKUP_LOCAL_PATH=${BACKUP_DIR}
+BACKUP_RETENTION_DAYS=${retention_days}
+BACKUP_S3_ENABLED=${s3_enabled}
+BACKUP_S3_BUCKET=${s3_bucket}
+BACKUP_S3_ENDPOINT=${s3_endpoint}
+BACKUP_S3_REGION=${s3_region}
+BACKUP_S3_ACCESS_KEY=${s3_access_key}
+BACKUP_S3_SECRET_KEY=${s3_secret_key}
+EOF
+
+    echo
+    success "Backup configuration saved."
+    echo
+
+    ask_yn schedule_backup "Setup daily automatic backup at 2 AM?" "y"
+    if [[ "${schedule_backup}" == "y" ]]; then
+        bash "${SCRIPT_DIR}/scripts/schedule.sh"
+    fi
+
+    echo
+    info "Backup commands:"
+    echo "  Create backup:  bash scripts/backup.sh"
+    echo "  List backups:  bash scripts/list-backups.sh"
+    echo "  Restore:       bash scripts/restore.sh"
+}
+
 print_wizard_menu() {
     print_banner
     echo -e "${BOLD}  Wizard actions${RESET}"
@@ -271,6 +412,7 @@ print_wizard_menu() {
     echo -e "  ${CYAN}7)${RESET} Update images + restart"
     echo -e "  ${CYAN}8)${RESET} Show running containers"
     echo -e "  ${CYAN}9)${RESET} Tail service logs"
+    echo -e "  ${CYAN}10)${RESET} Backup & Restore"
     echo -e "  ${CYAN}q)${RESET} Exit"
     echo
 }
@@ -316,6 +458,9 @@ run_wizard_hub() {
                 ;;
             9)
                 run_logs_wizard
+                ;;
+            10)
+                run_backup_wizard
                 ;;
             q)
                 success "Exiting wizard."
