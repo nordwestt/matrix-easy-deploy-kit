@@ -88,7 +88,7 @@ Everything runs in Docker Compose. Caddy manages your TLS certificate without yo
 >   </tr>
 > </table>
 >
-> The wizard only supports auto-setup of **Whatsapp** as of now, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
+> The wizard supports auto-setup of **WhatsApp** and **Slack** as of now, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
 
 
 ---
@@ -319,6 +319,12 @@ matrix-easy-deploy/
 │       └── whatsapp/
 │           ├── config.yaml       # Generated during module setup
 │           └── registration.yaml # Generated during module setup
+│   └── slack-bridge/             # Slack bridge (mautrix-slack)
+│       ├── docker-compose.yml    # Bridge service definition
+│       ├── setup.sh              # Module setup wizard
+│       └── slack/
+│           ├── config.yaml       # Generated during module setup
+│           └── registration.yaml # Generated during module setup
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -363,6 +369,7 @@ docker logs -f matrix_livekit
 docker logs -f matrix_coturn
 docker logs -f matrix-hookshot     # if hookshot module is installed
 docker logs -f mautrix-whatsapp    # if whatsapp-bridge module is installed
+docker logs -f mautrix-slack       # if slack-bridge module is installed
 ```
 
 **Create a user account (interactive)**
@@ -498,6 +505,42 @@ docker restart mautrix-whatsapp
 ```
 
 > **Note:** Your WhatsApp mobile app must stay active. If you factory-reset your phone or uninstall WhatsApp, re-run `login` in the bridge DM to re-link.
+
+#### `slack-bridge` — Bridge Matrix to Slack
+
+[mautrix-slack](https://github.com/mautrix/slack) lets you send and receive Slack messages directly from your Matrix client. Your Slack account is linked using a token and cookie from the Slack web app — no third-party service involved, everything runs on your own server.
+
+| Feature | Notes |
+|---------|-------|
+| **1:1 chats** | All personal Slack DMs appear as Matrix rooms |
+| **Channels** | Slack channels bridged as Matrix rooms |
+| **Media** | Images, files — all bridged both ways |
+| **PostgreSQL** | Dedicated database created automatically during setup |
+
+```bash
+bash matrix-wizard.sh --module slack-bridge
+```
+
+The wizard will ask for your Matrix admin username, then handle everything: database creation, config generation, appservice registration with Synapse, and starting the container.
+
+**After setup:**
+1. Open a DM with `@slackbot:<your-server>` in Element
+2. Send `login token <xoxc-token> <xoxd-cookie>`
+3. Your Slack chats will start appearing as Matrix rooms
+
+**Getting your Slack token and cookie:**
+1. Login to Slack in your browser
+2. Open browser devtools → Application → Local Storage
+3. Find `localConfig_v2` → teams → your team → token (starts with `xoxc-`)
+4. The `d` cookie (starts with `xoxd-`) is under Cookies for slack.com
+
+```bash
+# View logs
+docker logs -f mautrix-slack
+
+# Restart
+docker restart mautrix-slack
+```
 
 More modules coming. Watch this space.
 
