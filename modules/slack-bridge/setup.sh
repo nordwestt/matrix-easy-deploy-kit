@@ -35,7 +35,7 @@ CADDYFILE="${PROJECT_ROOT}/caddy/Caddyfile"
 
 BRIDGE_IMAGE="dock.mau.dev/mautrix/slack:latest"
 BRIDGE_CONTAINER="mautrix-slack"
-BRIDGE_PORT="29318"
+BRIDGE_PORT="29335"
 
 # =============================================================================
 # Step 1 — Load existing deployment environment
