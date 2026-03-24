@@ -213,6 +213,7 @@ run_logs_wizard() {
     echo -e "  ${CYAN}7)${RESET} Coturn"
     echo -e "  ${CYAN}8)${RESET} Hookshot"
     echo -e "  ${CYAN}9)${RESET} WhatsApp bridge"
+    echo -e "  ${CYAN}10)${RESET} Slack bridge"
     echo -e "  ${CYAN}b)${RESET} Back"
     echo -e "  ${CYAN}q)${RESET} Quit"
 
@@ -232,6 +233,7 @@ run_logs_wizard() {
         7) container="matrix_coturn" ;;
         8) container="matrix-hookshot" ;;
         9) container="mautrix-whatsapp" ;;
+        10) container="mautrix-slack" ;;
         b) return ;;
         q)
             success "Exiting wizard."
