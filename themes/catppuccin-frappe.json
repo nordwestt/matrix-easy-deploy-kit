@@ -1,6 +1,9 @@
 {
         "name": "Catppuccin Frappé (Mauve)",
         "is_dark": true,
+        "compound": {
+          "cpd-color-bg-canvas-default": "#303446"
+        },
         "colors": {
           "accent-color": "#ca9ee6",
           "primary-color": "#ca9ee6",
@@ -14,7 +17,6 @@
           "roomlist-separator-color": "#838ba7",
           "timeline-background-color": "#303446",
           "timeline-text-color": "#c6d0f5",
-          "cpd-color-theme-bg": "#303446",
           "secondary-content": "#c6d0f5",
           "tertiary-content": "#c6d0f5",
           "timeline-text-secondary-color": "#a5adce",
