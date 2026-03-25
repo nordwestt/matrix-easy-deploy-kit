@@ -37,6 +37,10 @@ if [[ -f "${SCRIPT_DIR}/modules/slack-bridge/slack/config.yaml" ]]; then
     docker pull dock.mau.dev/mautrix/slack:latest
 fi
 
+if [[ -f "${SCRIPT_DIR}/modules/ai-bot/baibot/config.yml" ]]; then
+    docker pull ghcr.io/etkecc/baibot:latest
+fi
+
 info "Restarting services…"
 bash "${SCRIPT_DIR}/start.sh"
 

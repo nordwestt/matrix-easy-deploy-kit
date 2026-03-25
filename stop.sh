@@ -36,6 +36,12 @@ if [[ -n "${HOOKSHOT_DOMAIN:-}" && -f "${SCRIPT_DIR}/modules/hookshot/hookshot/c
     (cd "${SCRIPT_DIR}/modules/hookshot" && "${DOCKER_COMPOSE[@]}" down)
 fi
 
+# Stop Baibot AI bot if it was installed as a module
+if [[ -f "${SCRIPT_DIR}/modules/ai-bot/baibot/config.yml" ]]; then
+    info "Stopping Baibot AI bot…"
+    (cd "${SCRIPT_DIR}/modules/ai-bot" && "${DOCKER_COMPOSE[@]}" down)
+fi
+
 info "Stopping calls services (coturn + LiveKit)…"
 (cd "${SCRIPT_DIR}/modules/calls" && "${DOCKER_COMPOSE[@]}" down)
 

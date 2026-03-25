@@ -46,4 +46,10 @@ if [[ -f "${SCRIPT_DIR}/modules/slack-bridge/slack/config.yaml" ]]; then
     (cd "${SCRIPT_DIR}/modules/slack-bridge" && "${DOCKER_COMPOSE[@]}" up -d)
 fi
 
+# Start Baibot AI bot if it was installed as a module
+if [[ -f "${SCRIPT_DIR}/modules/ai-bot/baibot/config.yml" ]]; then
+    info "Starting Baibot AI bot…"
+    (cd "${SCRIPT_DIR}/modules/ai-bot" && "${DOCKER_COMPOSE[@]}" up -d)
+fi
+
 success "All services started."

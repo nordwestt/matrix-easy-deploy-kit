@@ -1,0 +1,19 @@
+services:
+  baibot:
+    image: ghcr.io/etkecc/baibot:v1.16.1
+    container_name: matrix-baibot
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs: /tmp:rw,noexec,nosuid,size=1024m
+    environment:
+      - BAIBOT_PERSISTENCE_DATA_DIR_PATH=/data
+    volumes:
+      - ./baibot:/data
+    networks:
+      - caddy_net
+
+networks:
+  caddy_net:
+    external: true
+    name: caddy_net

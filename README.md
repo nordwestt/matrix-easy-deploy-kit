@@ -90,6 +90,10 @@ Everything runs in Docker Compose. Caddy manages your TLS certificate without yo
 >
 > The wizard supports auto-setup of **WhatsApp** and **Slack** as of now, but you can add more bridges manually through [following the documentation](https://docs.mau.fi/bridges). Keep an eye on this project for auto-setup of more bridges in future releases.
 
+> ### 🤖 AI Bot: Baibot
+>
+> Add an AI-powered bot to your Matrix server with support for OpenAI, Ollama, LocalAI, Groq, Anthropic, and more. See [ai-bot module](#ai-bot--baibot-ai-bot) for details.
+
 
 ---
 
@@ -325,6 +329,11 @@ matrix-easy-deploy/
 │       └── slack/
 │           ├── config.yaml       # Generated during module setup
 │           └── registration.yaml # Generated during module setup
+│   └── ai-bot/                   # Baibot AI bot
+│       ├── docker-compose.yml    # Bot service definition
+│       ├── setup.sh              # Module setup wizard
+│       └── baibot/
+│           └── config.yml       # Generated during module setup
 │
 └── scripts/
     ├── lib.sh                    # Shared shell utilities
@@ -370,6 +379,7 @@ docker logs -f matrix_coturn
 docker logs -f matrix-hookshot     # if hookshot module is installed
 docker logs -f mautrix-whatsapp    # if whatsapp-bridge module is installed
 docker logs -f mautrix-slack       # if slack-bridge module is installed
+docker logs -f matrix-baibot        # if ai-bot module is installed
 ```
 
 **Create a user account (interactive)**
@@ -540,6 +550,41 @@ docker logs -f mautrix-slack
 
 # Restart
 docker restart mautrix-slack
+```
+
+#### `ai-bot` — Baibot AI Bot
+
+[Baibot](https://github.com/etkecc/baibot) is an AI-powered bot that brings AI assistance directly into your Matrix rooms. It supports multiple AI providers and flexible authentication methods.
+
+| Feature | Notes |
+|---------|-------|
+| **Multiple AI Providers** | OpenAI, Ollama, LocalAI, Groq, Anthropic, OpenRouter |
+| **Flexible Auth** | Supports bot password or access token (OIDC/MAS) |
+| **Encryption** | E2EE with encrypted key backup |
+| **Admin Control** | Configure which users can administer the bot |
+
+```bash
+bash matrix-wizard.sh --module ai-bot
+```
+
+The wizard will ask for:
+1. **AI Provider** — Choose from OpenAI, Ollama, LocalAI, Groq, Anthropic, or OpenRouter
+2. **API Key/Endpoint** — Credentials for your chosen provider
+3. **Authentication** — Password or access token method
+4. **Admin Users** — Who can administer the bot
+5. **Domain** — Optional public domain for bot access
+
+**After setup:**
+1. Invite `@baibot:<your-server>` to a room
+2. Send `!bai help` to see available commands
+3. Start chatting with the AI!
+
+```bash
+# View logs
+docker logs -f matrix-baibot
+
+# Restart
+docker restart matrix-baibot
 ```
 
 More modules coming. Watch this space.

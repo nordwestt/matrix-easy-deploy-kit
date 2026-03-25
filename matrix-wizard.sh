@@ -214,6 +214,7 @@ run_logs_wizard() {
     echo -e "  ${CYAN}8)${RESET} Hookshot"
     echo -e "  ${CYAN}9)${RESET} WhatsApp bridge"
     echo -e "  ${CYAN}10)${RESET} Slack bridge"
+    echo -e "  ${CYAN}11)${RESET} Baibot AI bot"
     echo -e "  ${CYAN}b)${RESET} Back"
     echo -e "  ${CYAN}q)${RESET} Quit"
 
@@ -234,6 +235,7 @@ run_logs_wizard() {
         8) container="matrix-hookshot" ;;
         9) container="mautrix-whatsapp" ;;
         10) container="mautrix-slack" ;;
+        11) container="matrix-baibot" ;;
         b) return ;;
         q)
             success "Exiting wizard."
